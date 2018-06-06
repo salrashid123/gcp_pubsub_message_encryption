@@ -1,0 +1,11 @@
+google-cloud-pubsub
+canonicaljson
+PyJWT
+google-api-python-client
+httplib2
+oauth2client
+requests
+google-auth-httplib2
+canonicaljson
+google-auth
+cryptography
