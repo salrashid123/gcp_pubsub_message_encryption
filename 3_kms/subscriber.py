@@ -1,5 +1,19 @@
 #!/usr/bin/python
 
+# Copyright 2018 Google Inc. All rights reserved.
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # python subscriber.py   --service_account '../svc-subscriber.json' --project_id esp-demo-197318 --pubsub_topic my-new-topic  --pubsub_subscription my-new-subscriber --kms_location_id us-central1 --kms_key_ring_id mykeyring --kms_crypto_key_id key1
 
 import os
@@ -77,7 +91,7 @@ def callback(message):
         name=name,
         body={
          'ciphertext': (message.data).decode('utf-8'),
-         'additionalAuthenticatedData': base64.b64encode(tenantID).decode('utf-8')             
+         'additionalAuthenticatedData': base64.b64encode(tenantID).decode('utf-8')
         })
   response = request.execute()
   decrypted_message =  base64.b64decode(response['plaintext'])

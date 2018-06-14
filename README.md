@@ -28,3 +28,7 @@ The git repo here is broken down into four parts with code samples:
 - 2: Using GCP service accounts to sign and encrypt
 - 3: Using GCP Key Management System (KMS) alone
 - 4: Using GCP KMS to wrap data encryption keys and signing keys
+
+## Disclaimer
+
+The techniques and code contained here is not supported by google and is provided as-is (the corresponding git repo is under Apache license). It seeks to provide some options you can investigate, evaluate and employ if you choose to.
