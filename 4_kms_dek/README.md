@@ -5,7 +5,7 @@
 ## Introduction
 
 
-One option discussed here is using Google hosted key management system, [Cloud KMS](https://cloud.google.com/kms/docs/).  What KMS will do is provide a service to remotely encrypt and decrypt some text.   What that text actually is would not be the actual Pub/Sub message payload but rather a AES key used to encrypt the pubsub message itself.  (besides, you don't want to use KMS to encrypt the whole pubsub message which can be upto 10MB!).
+Option discussed here is using Google hosted key management system, [Cloud KMS](https://cloud.google.com/kms/docs/).  What KMS will do is provide a service to remotely encrypt and decrypt some text.   What that text actually is would not be the actual Pub/Sub message payload but rather a AES key used to encrypt the pubsub message itself.  (besides, you don't want to use KMS to encrypt the whole pubsub message which can be upto 10MB!).
 
 What you're doing here is [Envelope Encryption](https://cloud.google.com/kms/docs/envelope-encryption#how_to_encrypt_data_using_envelope_encryption) where what you're actually encrypting with KMS is the symmetric key you used to encrypt the PubsubMessage.  Once the key you used to encrypt your Pubsub data (data encryption key: DEK), you transmit the KMS-encrypted DEK along with the message itself.  
 
@@ -40,60 +40,96 @@ the snippet in python is:
 
 ## Simple message Encryption
 
-Ok, Now that we're on the same field, lets run through a sample run.  
+Ok, Now that we're on the same baseline, lets run through a sample run.  
+
 
 
 ### Encryption
 
 We're going to use the **SAME** service accounts as the publisher and subscriber already use as authorization to GCP.  You are ofcourse do not have to use the same ones..infact, for encryption, you can use the public key for any recipient on any project!
 
+
+To recap how to use this mode:
+
+First ensure you have two service accounts JSON files handy as `publisher.json` and `subscriber.json`:
+
+`publisher@PROJECT.iam.gserviceaccount.com`, `publisher@PROJECT.iam.gserviceaccount.com`
+
+A topic and a subscriber on that topic:
+topic: `my-new-topic`
+subscription: `my-new-subscriber`
+
+```
+$ gcloud pubsub topics list-subscriptions my-new-topic
+---
+  projects/PROJECT/subscriptions/my-new-subscriber
+```
+
+Set IAM bindings 
+```
+$ gcloud pubsub topics get-iam-policy my-new-topic
+bindings:
+- members:
+  - serviceAccount:publisher@PROJECT.iam.gserviceaccount.com
+
+$ gcloud pubsub subscriptions get-iam-policy my-new-subscriber
+bindings:
+- members:
+  - serviceAccount:subscriber@PROJECT.iam.gserviceaccount.com
+  role: roles/pubsub.subscriber
+```
+
+The KMS keyring `mykeyring` with an Encrption/Decrption key, `key`:
+
+```
+$ gcloud kms keys get-iam-policy --keyring mykeyring --location us-central1 key1
+bindings:
+- members:
+  - serviceAccount:subscriber@PROJECT.iam.gserviceaccount.com
+  role: roles/cloudkms.cryptoKeyDecrypter
+- members:
+  - serviceAccount:publisher@PROJECT.iam.gserviceaccount.com
+  role: roles/cloudkms.cryptoKeyEncrypter
+
+```
+
 Anyway..
 
-#### Output
+#### Output for Encryption
 
 - Publisher
-```
-$ python publisher.py  --mode encrypt --service_account '../svc-publisher.json' --project_id esp-demo-197318 --pubsub_topic my-new-topic   --kms_location us-central1 --kms_key_ring_id mykeyring --kms_key_id key1
-2018-06-03 10:29:36,092 INFO >>>>>>>>>>> Start Encryption with locally generated key.  <<<<<<<<<<<
-2018-06-03 10:29:36,092 INFO Generated dek: ZMZrRoXHTubd+GqBlV8C7B7QxrvvFEbryGyiDTW1I2A=
-2018-06-03 10:29:36,092 INFO Starting AES encryption
-2018-06-03 10:29:36,093 INFO End AES encryption
-2018-06-03 10:29:36,093 INFO Encrypted Message with dek: 6aSUI7RZ812KBsEdvjgr7u/Jc2uUu1OiZ9bTpAYWlE1ySUxIdQ2J4ndeBe7NjzhNaU+lf2juVaKyI/8Yj53/SncMyWuAGi7aii6M9K+o2CuXSJb1RJYXE5Y9XzRc9jt5xvzlmfA7S/VeT10xuSr7hw==
-2018-06-03 10:29:36,093 INFO Starting KMS encryption API call
-2018-06-03 10:29:36,099 INFO URL being requested: POST https://cloudkms.googleapis.com/v1/projects/esp-demo-197318/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1:encrypt?alt=json
-2018-06-03 10:29:36,101 DEBUG Making request: POST https://accounts.google.com/o/oauth2/token
-2018-06-03 10:29:36,758 INFO End KMS encryption API call
-2018-06-03 10:29:36,758 INFO Wrapped dek: CiQA+6RgJwqX7PRShVFQCtDi7pLuU12Sl0aXYg8qeNdBJ5DsZY4SSQBHSoJHNFWir+8b6SiACAXcJggsXOoWSRy0o15z9BYz55K9K9jbnSqI/8Pqa+eEperUwHitsZjjTEY1mFLrz9Zfcy2P1j3pkfA=
-2018-06-03 10:29:36,759 INFO End KMS encryption API call
-2018-06-03 10:29:36,759 INFO Start PubSub Publish
-2018-06-03 10:29:36,785 INFO Published Message: 6aSUI7RZ812KBsEdvjgr7u/Jc2uUu1OiZ9bTpAYWlE1ySUxIdQ2J4ndeBe7NjzhNaU+lf2juVaKyI/8Yj53/SncMyWuAGi7aii6M9K+o2CuXSJb1RJYXE5Y9XzRc9jt5xvzlmfA7S/VeT10xuSr7hw==
-2018-06-03 10:29:36,785 INFO End PubSub Publish
-2018-06-03 10:29:36,786 INFO >>>>>>>>>>> END <<<<<<<<<<<
+```bash
+$ python publisher.py  --mode encrypt --service_account publisher.json --kms_project_id mineral-minutia-820  --pubsub_topic my-new-topic   --kms_location us-central1 --kms_key_ring_id mykeyring --kms_key_id key1 --pubsub_project_id mineral-minutia-820
+
+2020-03-23 14:31:26,297 INFO URL being requested: GET https://www.googleapis.com/discovery/v1/apis/cloudkms/v1/rest
+2020-03-23 14:31:26,434 INFO >>>>>>>>>>> Start Encryption with locally generated key.  <<<<<<<<<<<
+2020-03-23 14:31:26,434 INFO Rotating symmetric key
+2020-03-23 14:31:26,434 INFO Starting KMS encryption API call
+2020-03-23 14:31:26,449 INFO URL being requested: POST https://cloudkms.googleapis.com/v1/projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1:encrypt?alt=json
+2020-03-23 14:31:26,682 INFO End KMS encryption API call
+2020-03-23 14:31:26,683 INFO Start PubSub Publish
+2020-03-23 14:31:26,698 INFO Published Message: tjnGOdgyWib3qdrg4Hn+5OAStpq52Gaaz74MyrfewXbKE2BCleROKsUDQxmxUDbpLEAXg2DF15mzrkQe65358KM4uj/tS/0r96RaoSqGCmqNisDuTAv0cOMcB8Aglxf6roTXlhwiDyCJQqGrs6AA+w==
+2020-03-23 14:31:26,699 INFO End PubSub Publish
+2020-03-23 14:31:26,699 INFO >>>>>>>>>>> END <<<<<<<<<<<
+
 ```
 
 - Subscriber:
-```
-$ python subscriber.py  --mode decrypt --service_account '../svc-subscriber.json' --project_id esp-demo-197318 --pubsub_topic my-new-topic --pubsub_subscription my-new-subscriber --kms_location us-central1 --kms_key_ring_id mykeyring --kms_key_id key1
-2018-06-03 10:29:53,868 INFO URL being requested: GET https://www.googleapis.com/discovery/v1/apis/cloudkms/v1/rest
-2018-06-03 10:29:54,419 INFO >>>>>>>>>>> Start <<<<<<<<<<<
-2018-06-03 10:29:56,245 INFO ********** Start PubsubMessage
-2018-06-03 10:29:56,246 INFO Received message ID: 109223131542764
-2018-06-03 10:29:56,246 INFO Received message publish_time: seconds: 1528046977 nanos: 353000000
-2018-06-03 10:29:56,247 INFO Received message attributes["kms_key"]: projects/esp-demo-197318/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
-2018-06-03 10:29:56,247 INFO Received message attributes["dek_wrapped"]: CiQA+6RgJwqX7PRShVFQCtDi7pLuU12Sl0aXYg8qeNdBJ5DsZY4SSQBHSoJHNFWir+8b6SiACAXcJggsXOoWSRy0o15z9BYz55K9K9jbnSqI/8Pqa+eEperUwHitsZjjTEY1mFLrz9Zfcy2P1j3pkfA=
-2018-06-03 10:29:56,247 INFO Starting KMS decryption API call
-2018-06-03 10:29:56,250 INFO URL being requested: POST https://cloudkms.googleapis.com/v1/projects/esp-demo-197318/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1:decrypt?alt=json
-2018-06-03 10:29:56,256 DEBUG Handling 1 batched requests
-2018-06-03 10:29:56,260 DEBUG Making request: POST https://accounts.google.com/o/oauth2/token
-2018-06-03 10:29:56,312 DEBUG Sent request(s) over unary RPC.
-2018-06-03 10:29:56,886 INFO End KMS decryption API call
-2018-06-03 10:29:56,886 INFO Received aes_encryption_key : ZMZrRoXHTubd+GqBlV8C7B7QxrvvFEbryGyiDTW1I2A=
-2018-06-03 10:29:56,887 INFO Starting AES decryption
-2018-06-03 10:29:56,888 INFO End AES decryption
-2018-06-03 10:29:56,888 INFO Decrypted data {"attributes": {"a": "aaa", "c": "ccc", "b": "bbb", "epoch_time": 1528046976}, "data": "foo"}
-2018-06-03 10:29:56,889 INFO ACK message
-2018-06-03 10:29:56,890 DEBUG Handling 1 batched requests
-2018-06-03 10:29:56,890 INFO ********** End PubsubMessage
+```bash
+$ python subscriber.py  --mode decrypt --service_account subscriber.json --pubsub_project_id mineral-minutia-820 --kms_project_id mineral-minutia-820 --pubsub_topic my-new-topic --pubsub_subscription my-new-subscriber --kms_location us-central1 --kms_key_ring_id mykeyring --kms_key_id key1 
+
+ImportError: file_cache is unavailable when using oauth2client >= 4.0.0 or google-auth
+2020-03-23 14:31:23,467 INFO URL being requested: GET https://www.googleapis.com/discovery/v1/apis/cloudkms/v1/rest
+2020-03-23 14:31:23,632 INFO >>>>>>>>>>> Start <<<<<<<<<<<
+2020-03-23 14:31:23,634 INFO Listening for messages on projects/mineral-minutia-820/subscriptions/my-new-subscriber
+2020-03-23 14:31:27,632 INFO ********** Start PubsubMessage 
+2020-03-23 14:31:27,632 INFO Received message ID: 444703597866455
+2020-03-23 14:31:27,633 INFO Starting KMS decryption API call
+2020-03-23 14:31:27,636 INFO URL being requested: POST https://cloudkms.googleapis.com/v1/projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1:decrypt?alt=json
+2020-03-23 14:31:27,898 INFO End KMS decryption API call
+2020-03-23 14:31:27,899 INFO Decrypted data {"attributes": {"a": "aaa", "c": "ccc", "b": "bbb", "epoch_time": 1584988286}, "data": "foo"}
+2020-03-23 14:31:27,899 INFO ********** End PubsubMessage 
+
 ```
 
 > The code all this can be found in the Appendix
@@ -108,50 +144,35 @@ For signing, we do something similar where we're singing just what we would put 
 
 - Publisher
 
-```
-$ python publisher.py  --mode sign --service_account '../svc-publisher.json' --project_id esp-demo-197318 --pubsub_topic my-new-topic   --kms_location us-central1 --kms_key_ring_id mykeyring --kms_key_id key1
+```bash
+$ python publisher.py  --mode sign --service_account publisher.json --kms_project_id mineral-minutia-820  --pubsub_topic my-new-topic   --kms_location us-central1 --kms_key_ring_id mykeyring --kms_key_id key1 --pubsub_project_id mineral-minutia-820
 
-2018-06-03 11:43:09,885 INFO >>>>>>>>>>> Start Sign with with locally generated key. <<<<<<<<<<<
-2018-06-03 11:43:09,885 INFO Generated signing key: 1ljStq5QoMgfMonu4bqinUeM1czefzqi
-2018-06-03 11:43:09,885 INFO Starting signature
-2018-06-03 11:43:09,970 INFO Generated Signature: stVBJi1RFpAf4nBd7wVIB0zJUImVe5CWEJbGQOdqAX8=
-2018-06-03 11:43:09,970 INFO End signature
-2018-06-03 11:43:09,970 INFO Starting KMS encryption API call
-2018-06-03 11:43:09,976 INFO URL being requested: POST https://cloudkms.googleapis.com/v1/projects/esp-demo-197318/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1:encrypt?alt=json
-2018-06-03 11:43:09,977 DEBUG Making request: POST https://accounts.google.com/o/oauth2/token
-2018-06-03 11:43:10,654 INFO End KMS encryption API call
-2018-06-03 11:43:10,654 INFO Start PubSub Publish
-2018-06-03 11:43:10,684 INFO Published Message: {'attributes': {'a': 'aaa', 'c': 'ccc', 'b': 'bbb', 'epoch_time': 1528051389}, 'data': 'foo'}
-2018-06-03 11:43:10,684 INFO  with key_id: projects/esp-demo-197318/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
-2018-06-03 11:43:10,684 INFO  with wrapped signature key CiQA+6RgJ2xTuO7dq0HR/TU+K4dsRcdRaO1AiHkyjTQMwNmyxA8SSQBHSoJH2JmuE3H68F411K4vNiulIALgQ3Kg2m499ykK+aI0grk68AgnwXlk6x+0d7rz1nTmV08ESRbhgWM3OwyhkfQxO1x7yBI=
-2018-06-03 11:43:10,684 INFO End PubSub Publish
-2018-06-03 11:43:10,684 INFO >>>>>>>>>>> END <<<<<<<<<<<
+2020-03-23 14:32:33,110 INFO URL being requested: GET https://www.googleapis.com/discovery/v1/apis/cloudkms/v1/rest
+2020-03-23 14:32:33,269 INFO >>>>>>>>>>> Start Sign with with locally generated key. <<<<<<<<<<<
+2020-03-23 14:32:33,269 INFO Rotating key
+2020-03-23 14:32:33,331 INFO Starting KMS encryption API call
+2020-03-23 14:32:33,335 INFO URL being requested: POST https://cloudkms.googleapis.com/v1/projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1:encrypt?alt=json
+2020-03-23 14:32:33,564 INFO End KMS encryption API call
+2020-03-23 14:32:33,565 INFO Start PubSub Publish
+2020-03-23 14:32:33,577 INFO Published Message: {'attributes': {'a': 'aaa', 'c': 'ccc', 'b': 'bbb', 'epoch_time': 1584988353}, 'data': 'foo'}
+2020-03-23 14:32:33,577 INFO  with key_id: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2020-03-23 14:32:33,578 INFO >>>>>>>>>>> END <<<<<<<<<<<
 ```
 
 - Subscriber
 ```
-$ python subscriber.py  --mode verify --service_account '../svc-subscriber.json' --project_id esp-demo-197318 --pubsub_topic my-new-topic --pubsub_subscription my-new-subscriber --kms_location us-central1 --kms_key_ring_id mykeyring --kms_key_id key1
+$  python subscriber.py  --mode verify --service_account subscriber.json --pubsub_project_id mineral-minutia-820 --kms_project_id mineral-minutia-820 --pubsub_topic my-new-topic --pubsub_subscription my-new-subscriber --kms_location us-central1 --kms_key_ring_id mykeyring --kms_key_id key1 
 
-2018-06-03 11:43:06,213 INFO >>>>>>>>>>> Start <<<<<<<<<<<
-2018-06-03 11:43:11,726 INFO ********** Start PubsubMessage
-2018-06-03 11:43:11,727 DEBUG waiting for recv.
-2018-06-03 11:43:11,727 INFO Received message ID: 109270966005226
-2018-06-03 11:43:11,728 INFO Received message publish_time: seconds: 1528051391 nanos: 123000000
-2018-06-03 11:43:11,728 INFO Received message attributes["kms_key"]: projects/esp-demo-197318/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
-2018-06-03 11:43:11,729 INFO Received message attributes["hmac_wrapped"]: CiQA+6RgJ2xTuO7dq0HR/TU+K4dsRcdRaO1AiHkyjTQMwNmyxA8SSQBHSoJH2JmuE3H68F411K4vNiulIALgQ3Kg2m499ykK+aI0grk68AgnwXlk6x+0d7rz1nTmV08ESRbhgWM3OwyhkfQxO1x7yBI=
-2018-06-03 11:43:11,729 INFO Received message attributes["signature"]: stVBJi1RFpAf4nBd7wVIB0zJUImVe5CWEJbGQOdqAX8=
-2018-06-03 11:43:11,729 INFO Starting KMS decryption API call
-2018-06-03 11:43:11,731 INFO URL being requested: POST https://cloudkms.googleapis.com/v1/projects/esp-demo-197318/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1:decrypt?alt=json
-2018-06-03 11:43:11,736 DEBUG Making request: POST https://accounts.google.com/o/oauth2/token
-2018-06-03 11:43:11,737 DEBUG Handling 1 batched requests
-2018-06-03 11:43:11,782 DEBUG Sent request(s) over unary RPC.
-2018-06-03 11:43:12,398 INFO End KMS decryption API call
-2018-06-03 11:43:12,399 INFO Received signature : MWxqU3RxNVFvTWdmTW9udTRicWluVWVNMWN6ZWZ6cWk=
-2018-06-03 11:43:12,399 INFO Verify message: {"attributes": {"a": "aaa", "c": "ccc", "b": "bbb", "epoch_time": 1528051389}, "data": "foo"}
-2018-06-03 11:43:12,400 INFO   With HMAC: stVBJi1RFpAf4nBd7wVIB0zJUImVe5CWEJbGQOdqAX8=
-2018-06-03 11:43:12,400 INFO   With unwrapped key: 1ljStq5QoMgfMonu4bqinUeM1czefzqi
-2018-06-03 11:43:12,499 INFO Message authenticity verified
-2018-06-03 11:43:12,499 INFO ********** End PubsubMessage
+2020-03-23 14:32:25,342 INFO URL being requested: GET https://www.googleapis.com/discovery/v1/apis/cloudkms/v1/rest
+2020-03-23 14:32:25,670 INFO >>>>>>>>>>> Start <<<<<<<<<<<
+2020-03-23 14:32:25,673 INFO Listening for messages on projects/mineral-minutia-820/subscriptions/my-new-subscriber
+2020-03-23 14:32:34,090 INFO ********** Start PubsubMessage 
+2020-03-23 14:32:34,090 INFO Received message ID: 444703370594175
+2020-03-23 14:32:34,091 INFO Starting KMS decryption API call
+2020-03-23 14:32:34,094 INFO URL being requested: POST https://cloudkms.googleapis.com/v1/projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1:decrypt?alt=json
+2020-03-23 14:32:34,331 INFO End KMS decryption API call
+2020-03-23 14:32:34,332 INFO Message authenticity verified
+
 ```
 
 ## Execution Latency

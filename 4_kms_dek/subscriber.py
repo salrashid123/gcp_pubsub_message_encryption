@@ -27,6 +27,7 @@ parser.add_argument('--pubsub_project_id',required=True, help='subscriber PubSub
 parser.add_argument('--pubsub_topic',required=True, help='pubsub_topic to publish message')
 parser.add_argument('--pubsub_subscription',required=True, help='pubsub_subscription to pull message')
 
+parser.add_argument('--kms_project_id',required=True, help='publisher KMS project')
 parser.add_argument('--kms_location_id',required=True, help='KMS kms_location_id (eg, us-central1)')
 parser.add_argument('--kms_key_ring_id',required=True, help='KMS kms_key_ring_id (eg, mykeyring)')
 parser.add_argument('--kms_key_id',required=True, help='KMS kms_key_id (eg, key1)')
@@ -45,6 +46,7 @@ http = httplib2.Http()
 credentials.authorize(http)
 
 pubsub_project_id = args.pubsub_project_id
+kms_project_id = args.kms_project_id
 
 tenantID = args.tenantID
 
