@@ -4,43 +4,41 @@
 
 ## Introduction
 
+In this mode, each pubsub message is encrypted by a symmetric key which is itself wrapped by a KMS key reference.
 
-Option discussed here is using Google hosted key management system, [Cloud KMS](https://cloud.google.com/kms/docs/).  What KMS will do is provide a service to remotely encrypt and decrypt some text.   What that text actually is would not be the actual Pub/Sub message payload but rather a AES key used to encrypt the pubsub message itself.  (besides, you don't want to use KMS to encrypt the whole pubsub message which can be upto 10MB!).
+That is, if the original pubsub message looks like:
 
-What you're doing here is [Envelope Encryption](https://cloud.google.com/kms/docs/envelope-encryption#how_to_encrypt_data_using_envelope_encryption) where what you're actually encrypting with KMS is the symmetric key you used to encrypt the PubsubMessage.  Once the key you used to encrypt your Pubsub data (data encryption key: DEK), you transmit the KMS-encrypted DEK along with the message itself.  
+```json
+_json_message = {
+    "data": "foo",
+    "attributes": {
+      "attribute1": "value1",
+      "attribute2": "value2"    
+    }
+  }
+```
+
+The wrapped message delivered to each subscriber would be:
+
+
+```json
+_json_message = {
+    "data": "tjnGOdgyWib3qdrg4Hn+5OAStpq52Gaaz74MyrfewXbKE2BCleROKsUDQxmxUDbpLEAXg2DF15mzrkQe65358KM4uj/tS/",
+    "attributes": {
+      "kms_key": "projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1",
+      "dek_wrapped": "aaseMYA+6QqoVVl7+qs3H10qyp5eSzvz4EAib998s2M="    
+    }
+  }
+```
+
+
+Basically, this is another layer of [Envelope Encryption](https://cloud.google.com/kms/docs/envelope-encryption#how_to_encrypt_data_using_envelope_encryption) where what you're actually encrypting with KMS is the symmetric key you used to encrypt the PubsubMessage.  Once the key you used to encrypt your Pubsub data (data encryption key: DEK), you transmit the KMS-encrypted DEK along with the message itself.  
 
 On the subscriber side, you get a KMS encrypted DEK and the message that is encrypted by the DEK.  You use KMS to unwrap the DEK and then finally use the plaintext DEK to decrypt the Pub/SubMessage.
 
-There are several shortcomings to this whole approach: 1. is it necessary to do all this (it depends..most/almost all customers dont' need to).. and 2. what is the added latency, cost associated with this (there is some latency since we're making another round trip to KMS...and the costs of KMS operations too)
+One variation is that the DEK itself can be rotated by the publisher while the subscriber can expire its cache of known keys.
 
-Anyway, lets move on.
-
----
-
-### Encrypted message Formatter
-
-Please refer to the first article on the series for the format basics.  The variation describe in this technique has a slight extension to account for the service_account:
-
-What this technique does is encrypts that entirely as the message ```data``` and _then_ add ```kms_key=``` you used as well as the actual encrypted message (```dek_encrypted```).
-
-the snippet in python is:
-```python
-publisher.publish(topic_name, data=encrypted_message.encode('utf-8'), kms_key=name, dek_wrapped=dek_encrypted)
-```
-
-### Signed message Formatter
-
-Similar to the first article, we will be signing the message you users intended to send and then embedding the wrapped key as the ```key=``` attribute and the```signature=``` attributecontainig the corresponding signature
-
-the snippet in python is:
-```python
-  publisher.publish(topic_name, data=json.dumps(cleartext_message), kms_key=name, sign_key_wrapped=sign_key_wrapped, signature=msg_hash)
-```
-
-
-## Simple message Encryption
-
-Ok, Now that we're on the same baseline, lets run through a sample run.  
+The publisher can pick a DEK for say 100 messages, transmit them and then create a new DEK.   Since the wrapped KMSEncrypted(DEK) is a message attribute, the subscriber can setup a local cache of KMSEncrypted(DEK)-> decrypted(DEK) map.  If it sees a wrapped DEK that it has in cache, it can "just decrypt' the message data.  If it does not see the wrapped dek in cache, it can make a KMS call to decrypt the new key and then save it in cache.
 
 
 
@@ -53,7 +51,7 @@ To recap how to use this mode:
 
 First ensure you have two service accounts JSON files handy as `publisher.json` and `subscriber.json`:
 
-`publisher@PROJECT.iam.gserviceaccount.com`, `publisher@PROJECT.iam.gserviceaccount.com`
+`publisher@PROJECT.iam.gserviceaccount.com`, `subscriber@PROJECT.iam.gserviceaccount.com`
 
 A topic and a subscriber on that topic:
 topic: `my-new-topic`
