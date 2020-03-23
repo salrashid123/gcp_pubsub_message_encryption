@@ -111,52 +111,61 @@ if args.mode =="sign":
 
 if args.mode =="encrypt":
     logging.info(">>>>>>>>>>> Start Encryption with locally generated key.  <<<<<<<<<<<")
-    logging.info("Rotating symmetric key")
-    # 256bit AES key
-    dek = os.urandom(32)
-    logging.debug("Generated dek: " + base64.b64encode(dek) )
+    ## Send pubsub messages using two different symmetric keys
+    ## Note, i'm not using the expiringdict here...i'm just picking a DEK, sending N messages using it
+    ## then picking another DEK and sending N messages with that one.
+    ## The subscriber will use a cache of DEK values.  If it detects a DEK in the metadata that doesn't 
+    ## match whats in its cache, it will use KMS to try to decode it and then keep it in its cache.
+    for x in range(2):
+        logging.info("Rotating symmetric key")
+        # 256bit AES key
+        dek = os.urandom(32)
+        logging.debug("Generated dek: " + base64.b64encode(dek) )
 
-    logging.info("Starting KMS encryption API call")
-    crypto_keys = kms_client.projects().locations().keyRings().cryptoKeys()
-    request = crypto_keys.encrypt(
-            name=name,
-            body={
-            'plaintext': base64.b64encode(dek).decode('utf-8'),
-            'additionalAuthenticatedData': base64.b64encode(tenantID).decode('utf-8')
-            })
-    response = request.execute()
-    dek_encrypted = response['ciphertext'].encode('utf-8')
+        logging.info("Starting KMS encryption API call")
+        crypto_keys = kms_client.projects().locations().keyRings().cryptoKeys()
+        request = crypto_keys.encrypt(
+                name=name,
+                body={
+                'plaintext': base64.b64encode(dek).decode('utf-8'),
+                'additionalAuthenticatedData': base64.b64encode(tenantID).decode('utf-8')
+                })
+        response = request.execute()
+        dek_encrypted = response['ciphertext'].encode('utf-8')
 
-    logging.debug("Wrapped dek: " + dek_encrypted)
-    logging.info("End KMS encryption API call")
+        logging.debug("Wrapped dek: " + dek_encrypted)
+        logging.info("End KMS encryption API call")
 
-    logging.debug("Starting AES encryption")
-    ac = AESCipher(dek)
+        logging.debug("Starting AES encryption")
+        ac = AESCipher(dek)
 
-        
-    cleartext_message = {
-            "data" : "foo".encode(),
-            "attributes" : {
-                'epoch_time':  int(time.time()),
-                'a': "aaa",
-                'c': "ccc",
-                'b': "bbb"
-            }
-    }
+                
+        cleartext_message = {
+                "data" : "foo".encode(),
+                "attributes" : {
+                        'epoch_time':  int(time.time()),
+                        'a': "aaa",
+                        'c': "ccc",
+                        'b': "bbb"
+                }
+        }
 
-    encrypted_message = ac.encrypt(json.dumps(cleartext_message))
-    logging.debug("End AES encryption")
-    logging.debug("Encrypted Message with dek: " + encrypted_message)
+        encrypted_message = ac.encrypt(json.dumps(cleartext_message))
+        logging.debug("End AES encryption")
+        logging.debug("Encrypted Message with dek: " + encrypted_message)
 
 
-    logging.info("Start PubSub Publish")
-    publisher = pubsub.PublisherClient()
-    topic_name = 'projects/{project_id}/topics/{topic}'.format(
-        project_id=pubsub_project_id,
-        topic=PUBSUB_TOPIC,
-    )
-    publisher = pubsub.PublisherClient()
-    publisher.publish(topic_name, data=encrypted_message.encode('utf-8'), kms_key=name, dek_wrapped=dek_encrypted)
-    logging.info("Published Message: " + encrypted_message)
+        logging.info("Start PubSub Publish")
+        publisher = pubsub.PublisherClient()
+        topic_name = 'projects/{project_id}/topics/{topic}'.format(
+                project_id=pubsub_project_id,
+                topic=PUBSUB_TOPIC,
+        )
+        publisher = pubsub.PublisherClient()
+        ## Send 3messages using the same symmetric key...
+        for x in range(3):
+          publisher.publish(topic_name, data=encrypted_message.encode('utf-8'), kms_key=name, dek_wrapped=dek_encrypted)
+          logging.info("Published Message: " + encrypted_message)
+          time.sleep(1)
     logging.info("End PubSub Publish")
     logging.info(">>>>>>>>>>> END <<<<<<<<<<<")

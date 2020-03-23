@@ -139,7 +139,7 @@ def callback(message):
         response = request.execute()
         dek=  base64.b64decode(response['plaintext'])        
         logging.info("End KMS decryption API call")
-        logging.debug('Received aes_encryption_key : {}'.format( base64.b64encode(dek)))
+        logging.info('Received aes_encryption_key : {}'.format( base64.b64encode(dek)))
         
         cache[dek_wrapped] = dek
 
