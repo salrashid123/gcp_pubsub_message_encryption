@@ -23,7 +23,7 @@ import argparse
 from google.cloud import pubsub
 
 import requests
-import json
+import simplejson as json
 import base64
 import httplib2
 from apiclient.discovery import build
@@ -84,8 +84,8 @@ def callback(message):
     service_account= message.attributes['service_account']
     signature = message.attributes['signature']
 
-    logging.info("Attempting to verify message: " + message.data)
-    logging.info("Verify message with signature: " + signature)
+    logging.info("Attempting to verify message: " + str(message.data))
+    logging.info("Verify message with signature: " + str(signature))
     logging.info("  Using service_account/key_id: " + service_account + " " + key_id )
 
     cert_url = 'https://www.googleapis.com/service_accounts/v1/metadata/x509/' + service_account
@@ -107,7 +107,7 @@ def callback(message):
     key_id = message.attributes['key_id']
     msg_service_account= message.attributes['service_account']
 
-    logging.info("Attempting to decrypt message: " + message.data)
+    logging.info("Attempting to decrypt message: " + str(message.data))
     logging.info("  Using service_account/key_id: " + msg_service_account + " " + key_id )
 
     credentials = Credentials.from_service_account_file(args.service_account)

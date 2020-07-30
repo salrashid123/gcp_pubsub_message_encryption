@@ -8,3 +8,5 @@ requests
 google-auth-httplib2
 cryptography
 expiringdict
+tink
+simplejson

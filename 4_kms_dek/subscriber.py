@@ -3,12 +3,11 @@
 import os
 import time
 from google.cloud import pubsub
+from google.cloud import kms
 import argparse
-import json
+import simplejson as json
 import base64
 import httplib2
-from apiclient.discovery import build
-from oauth2client.client import GoogleCredentials
 
 from utils import AESCipher, HMACFunctions, RSACipher
 
@@ -38,12 +37,6 @@ scope='https://www.googleapis.com/auth/cloudkms https://www.googleapis.com/auth/
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
 
-credentials = GoogleCredentials.get_application_default()
-if credentials.create_scoped_required():
-  credentials = credentials.create_scoped(scope)
-
-http = httplib2.Http()
-credentials.authorize(http)
 
 pubsub_project_id = args.pubsub_project_id
 kms_project_id = args.kms_project_id
@@ -53,8 +46,7 @@ tenantID = args.tenantID
 PUBSUB_TOPIC = args.pubsub_topic
 PUBSUB_SUBSCRIPTION = args.pubsub_subscription
 
-kms_client = build('cloudkms', 'v1')
-crypto_keys = kms_client.projects().locations().keyRings().cryptoKeys()
+kms_client = kms.KeyManagementServiceClient()
 
 subscriber = pubsub.SubscriberClient()
 topic_name = 'projects/{project_id}/topics/{topic}'.format(
@@ -72,17 +64,16 @@ cache = ExpiringDict(max_len=100, max_age_seconds=20)
 
 logging.info(">>>>>>>>>>> Start <<<<<<<<<<<")
 
-
 def callback(message):
 
   if (args.mode == "verify"):
 
       logging.info("********** Start PubsubMessage ")
       logging.info('Received message ID: {}'.format(message.message_id))
-      logging.debug('Received message publish_time: {}'.format(message.publish_time))
-      logging.debug('Received message attributes["kms_key"]: {}'.format(message.attributes['kms_key']))
-      logging.debug('Received message attributes["sign_key_wrapped"]: {}'.format(message.attributes['sign_key_wrapped']))
-      logging.debug('Received message attributes["signature"]: {}'.format(message.attributes['signature']))
+      logging.info('Received message publish_time: {}'.format(message.publish_time))
+      logging.info('Received message attributes["kms_key"]: {}'.format(message.attributes['kms_key']))
+      logging.info('Received message attributes["sign_key_wrapped"]: {}'.format(message.attributes['sign_key_wrapped']))
+      logging.info('Received message attributes["signature"]: {}'.format(message.attributes['signature']))
       signature = message.attributes['signature']
       name = message.attributes['kms_key']
       sign_key_wrapped = message.attributes['sign_key_wrapped']
@@ -91,24 +82,24 @@ def callback(message):
          unwrapped_key = cache[sign_key_wrapped]
       except KeyError:
         logging.info("Starting KMS decryption API call")
-        request = crypto_keys.decrypt(
-              name=name,
-              body={
-              'ciphertext': (sign_key_wrapped).decode('utf-8'),
-              'additionalAuthenticatedData': base64.b64encode(tenantID).decode('utf-8')
-              })
-        response = request.execute()
-        unwrapped_key =  base64.b64decode(response['plaintext'])
+
+        name = message.attributes['kms_key']
+        unwrapped_key_struct = kms_client.decrypt(name=name, 
+                  ciphertext=base64.b64decode(message.attributes['sign_key_wrapped']),
+                  additional_authenticated_data=tenantID.encode('utf-8'))
+                  
+        unwrapped_key = unwrapped_key_struct.plaintext
+
         logging.info("End KMS decryption API call")
-        logging.debug("Verify message: " + message.data)
+        logging.debug("Verify message: " + message.data.decode('utf-8'))
         logging.debug('  With HMAC: ' + signature)
-        logging.debug('  With unwrapped key: ' + base64.b64encode(unwrapped_key))      
+        logging.debug('  With unwrapped key: ' + base64.b64encode(unwrapped_key).decode('utf-8'))      
         cache[sign_key_wrapped] = unwrapped_key
 
-      hh = HMACFunctions(base64.b64encode(unwrapped_key))
+      hh = HMACFunctions(unwrapped_key)
       sig = hh.hash(message.data)
 
-      if (hh.verify(base64.b64decode(sig))):
+      if (hh.verify(message.data,base64.b64decode(sig))):
         logging.info("Message authenticity verified")
         message.ack()
       else:
@@ -130,22 +121,22 @@ def callback(message):
          dek = cache[dek_wrapped]
       except KeyError:
         logging.info("Starting KMS decryption API call")
-        request = crypto_keys.decrypt(
-              name=name,
-              body={
-              'ciphertext': (dek_wrapped).decode('utf-8'),
-              'additionalAuthenticatedData': base64.b64encode(tenantID).decode('utf-8')
-              })
-        response = request.execute()
-        dek=  base64.b64decode(response['plaintext'])        
+
+        name = message.attributes['kms_key']
+        unwrapped_key_struct = kms_client.decrypt(name=name, 
+                  ciphertext=base64.b64decode(dek_wrapped),
+                  additional_authenticated_data=tenantID.encode('utf-8'))
+                  
+        dek = unwrapped_key_struct.plaintext
+
         logging.info("End KMS decryption API call")
-        logging.info('Received aes_encryption_key : {}'.format( base64.b64encode(dek)))
+        logging.info('Received aes_encryption_key : {}'.format( base64.b64encode(dek).decode('utf-8')))
         
         cache[dek_wrapped] = dek
 
       logging.debug("Starting AES decryption")
       ac = AESCipher(dek)
-      decrypted_data = ac.decrypt(message.data)
+      decrypted_data = ac.decrypt(message.data,associated_data="")
       logging.debug("End AES decryption")
       logging.info('Decrypted data ' + decrypted_data)
       message.ack()

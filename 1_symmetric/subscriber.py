@@ -95,7 +95,7 @@ def callback(message):
   if args.mode=='decrypt':
       try:
         ac = AESCipher(key)
-        decrypted_data = ac.decrypt(message.data)
+        decrypted_data = ac.decrypt(message.data,associated_data='')
         logging.info('Decrypted data ' + decrypted_data)
         logging.info("ACK message")
         message.ack()
@@ -107,11 +107,11 @@ def callback(message):
   if args.mode=='verify':
     logging.info("Starting HMAC")
     hmac = message.attributes.get('signature')
-    hh = HMACFunctions(base64.b64encode(key))
-    logging.info("Verify message: " + message.data)
-    logging.info('  With HMAC: ' + hmac)
-    hh.hash(message.data)
-    if (hh.verify(base64.b64decode(hmac))):
+    hh = HMACFunctions(key)
+    logging.info("Verify message: " + str(message.data))
+    logging.info('  With HMAC: ' + str(hmac))
+    hashed=hh.hash(message.data)
+    if (hh.verify(message.data,base64.b64decode(hashed))):
       logging.info("Message authenticity verified")
       message.ack()
     else:

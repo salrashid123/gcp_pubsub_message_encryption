@@ -1,4 +1,5 @@
 google-cloud-pubsub
+google-cloud-kms
 canonicaljson
 PyJWT
 google-api-python-client

@@ -39,9 +39,17 @@ import string
 import random
 import json
 
+import base64
+import io
+import tink
+from tink import aead
+from tink import tink_config
+from tink import mac
+from tink.proto import tink_pb2
+from tink.proto import common_pb2
+from tink import core
 
-def getKey(size=32, chars=string.ascii_letters + string.digits):
-    return ''.join(random.choice(chars) for _ in range(size))
+from tink import cleartext_keyset_handle
 
 
 class RSACipher(object):
@@ -64,63 +72,72 @@ class RSACipher(object):
      return  self.private_key.decrypt(base64.b64decode(raw), OAEP( mgf=MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(), label=None )).decode('utf-8').strip()
 
 
+tink_config.register()
+aead.register()
+mac.register()
+
 class AESCipher(object):
 
-    key = None
-    def __init__(self, key):
-        self.bs = 32
-        self.key = key
+    def __init__(self, encoded_key):
+      tink_config.register()
+      aead.register()
 
-    def encrypt(self, raw):
-        raw = self._pad(raw)
-        iv = os.urandom(16)
-        cipher = Cipher(algorithms.AES(self.key), modes.CBC(iv), backend=default_backend())
-        encryptor = cipher.encryptor()
-        ct = encryptor.update(raw.encode()) + encryptor.finalize()
-        return base64.b64encode(iv + ct)
+      if (encoded_key==None):
+        self.keyset_handle = tink.new_keyset_handle(aead.aead_key_templates.AES256_GCM)
+      else:
+        reader = tink.BinaryKeysetReader(base64.b64decode(encoded_key))
+        self.keyset_handle = cleartext_keyset_handle.read(reader)
+      self.key=self.keyset_handle.keyset_info()
+      self.aead_primitive = self.keyset_handle.primitive(aead.Aead)
 
-    def decrypt(self, enc):
-        enc = base64.b64decode(enc)
-        iv = enc[:16]
-        cipher = Cipher(algorithms.AES(self.key), modes.CBC(iv), backend=default_backend())
-        decryptor = cipher.decryptor()
-        return self._unpad(decryptor.update(enc[16:])) + decryptor.finalize()
+    def printKey(self):
+      print(self.keyset_handle.keyset_info())
 
-    def _pad(self, s):
-        return s + (self.bs - len(s) % self.bs) * chr(self.bs - len(s) % self.bs)
+    def getKey(self):
+      iostream = io.BytesIO()
+      writer = tink.BinaryKeysetWriter(iostream)
+      writer.write(self.keyset_handle._keyset)
+      encoded_key = base64.b64encode(iostream.getvalue()).decode('utf-8')
+      return base64.b64encode(iostream.getvalue()).decode('utf-8')
+      
 
-    @staticmethod
-    def _unpad(s):
-        return s[:-ord(s[len(s)-1:])]
+    def encrypt(self, plaintext, associated_data):
+      ciphertext = self.aead_primitive.encrypt(plaintext, associated_data.encode('utf-8'))
+      base64_bytes = base64.b64encode(ciphertext)
+      return (base64_bytes.decode('utf-8'))  
+
+    def decrypt(self, ciphertext, associated_data):
+      plaintext = self.aead_primitive.decrypt(base64.b64decode(ciphertext), associated_data.encode('utf-8'))
+      return(plaintext.decode('utf-8'))
 
 class HMACFunctions(object):
 
-    h = None
-    hm_key = None
-
-    def __init__(self, key=None):
-      kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=b'foosalt', iterations=100000, backend=default_backend() )
-      if (key is None):
-        key = os.urandom(32)
-        self.hm_key = kdf.derive(key)
+    def __init__(self, encoded_key=None):
+      if encoded_key == None:
+        self.keyset_handle = tink.new_keyset_handle(mac.mac_key_templates.HMAC_SHA256_256BITTAG)
       else:
-       self.hm_key = key
-      self.h = hmac.HMAC(self.hm_key, hashes.SHA256(), backend=default_backend())
+        reader = tink.BinaryKeysetReader(base64.b64decode(encoded_key))
+        self.keyset_handle = cleartext_keyset_handle.read(reader)
+      self.mac = self.keyset_handle.primitive(mac.Mac)
 
-    def getDerivedKey(self):
-      return self.hm_key
+    def printKey(self):
+      print(self.keyset_handle.keyset_info())
+
+    def getKey(self):
+      iostream = io.BytesIO()
+      writer = tink.BinaryKeysetWriter(iostream)
+      writer.write(self.keyset_handle._keyset)
+      encoded_key = base64.b64encode(iostream.getvalue()).decode('utf-8')
+      return base64.b64encode(iostream.getvalue()).decode('utf-8')
 
     def hash(self, msg):
-      self.h.update(msg.encode())
-      tmp = self.h.copy()
-      return base64.b64encode(tmp.finalize())
+      tag = self.mac.compute_mac(msg)
+      return base64.b64encode(tag)
 
-    def verify(self,signature):
+    def verify(self,data, signature):
       try:
-        self.h.verify(signature)
+        self.mac.verify_mac(signature, data)
         return True
-      except InvalidSignature as e:
+      except tink.TinkError as e:
         return False
+ 

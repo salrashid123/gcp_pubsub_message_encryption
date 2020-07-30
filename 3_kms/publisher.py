@@ -23,13 +23,13 @@ import logging
 import argparse
 
 from google.cloud import pubsub
+from google.cloud import kms
+
 
 import jwt
-import json
+import simplejson as json
 import base64, binascii
 import httplib2
-from apiclient.discovery import build
-from oauth2client.client import GoogleCredentials
 
 parser = argparse.ArgumentParser(description='Publish encrypted message with KMS only')
 parser.add_argument('--service_account',required=True,help='publisher service_acount credentials file')
@@ -49,13 +49,6 @@ scope='https://www.googleapis.com/auth/cloudkms https://www.googleapis.com/auth/
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
 
-credentials = GoogleCredentials.get_application_default()
-if credentials.create_scoped_required():
-  credentials = credentials.create_scoped(scope)
-
-http = httplib2.Http()
-credentials.authorize(http)
-
 project_id = args.project_id
 os.environ['GOOGLE_CLOUD_PROJECT'] = project_id
 PUBSUB_TOPIC = args.pubsub_topic
@@ -64,8 +57,8 @@ kms_key_ring_id = args.kms_key_ring_id
 kms_crypto_key_id = args.kms_crypto_key_id
 tenantID = args.tenantID
 
+kms_client = kms.KeyManagementServiceClient()
 
-kms_client = build('cloudkms', 'v1')
 name = 'projects/{}/locations/{}/keyRings/{}/cryptoKeys/{}'.format(
         project_id, kms_location_id, kms_key_ring_id, kms_crypto_key_id)
 
@@ -81,26 +74,9 @@ cleartext_message = {
     }
 }
 
-crypto_keys = kms_client.projects().locations().keyRings().cryptoKeys()
-logging.info("Starting KMS encryption API call")
-request = crypto_keys.encrypt(
-        name=name,
-        body={
-         'plaintext': base64.b64encode(json.dumps(cleartext_message)).decode('utf-8'),
-         'additionalAuthenticatedData': base64.b64encode(tenantID).decode('utf-8')
-        })
-response = request.execute()
-data_encrypted = response['ciphertext'].encode('utf-8')
-logging.info("End KMS encryption API call")
-#request = crypto_keys.decrypt(
-#        name=name,
-#        body={
-#         'ciphertext': (data_encrypted).decode('utf-8')
-#        })
-#response = request.execute()
-#logging.info(base64.b64decode(response['plaintext'].encode('utf-8')))
+data_encrypted = kms_client.encrypt(name=name, plaintext=json.dumps(cleartext_message).encode('utf-8'),additional_authenticated_data=tenantID.encode('utf-8'))
 
-logging.info("Wrapped data: " + data_encrypted)
+logging.info("End KMS encryption API call")
 
 logging.info("Start PubSub Publish")
 publisher = pubsub.PublisherClient()
@@ -108,7 +84,7 @@ topic_name = 'projects/{project_id}/topics/{topic}'.format(
     project_id=os.getenv('GOOGLE_CLOUD_PROJECT'),
     topic=PUBSUB_TOPIC,
 )
-publisher.publish(topic_name, data=data_encrypted.encode('utf-8'), kms_key=name)
-logging.info("Published Message: " + data_encrypted)
+publisher.publish(topic_name, data=base64.b64encode(data_encrypted.ciphertext), kms_key=name)
+logging.info("Published Message: " + base64.b64encode(data_encrypted.ciphertext).decode())
 logging.info("End PubSub Publish")
 logging.info(">>>>>>>>>>> END <<<<<<<<<<<")

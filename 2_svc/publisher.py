@@ -29,7 +29,7 @@ import google.auth
 from google.oauth2 import service_account
 
 import jwt
-import json
+import simplejson as json
 import base64, binascii
 import httplib2
 from apiclient.discovery import build
@@ -81,8 +81,8 @@ if args.mode =="sign":
   logging.info(">>>>>>>>>>> Start Sign with Service Account json KEY <<<<<<<<<<<")
 
   credentials = service_account.Credentials.from_service_account_file(args.service_account)
-  data_signed = credentials.sign_bytes(json.dumps(cleartext_message)).encode('base64')
-  logging.info("Signature: "  + data_signed)
+  data_signed = credentials.sign_bytes(json.dumps(cleartext_message))
+  logging.info("Signature: "  + base64.b64encode(data_signed).decode('utf-8'))
   key_id = credentials._signer._key_id
   service_account = credentials.service_account_email
   # Also use: https://google-auth.readthedocs.io/en/latest/reference/google.auth.jwt.html#module-google.auth.jwt
@@ -98,7 +98,7 @@ if args.mode =="sign":
     topic=PUBSUB_TOPIC,
   )
 
-  publisher.publish(topic_name, data=json.dumps(cleartext_message), key_id=key_id, service_account=service_account, signature=data_signed)
+  publisher.publish(topic_name, data=json.dumps(cleartext_message).encode('utf-8'), key_id=key_id, service_account=service_account, signature=base64.b64encode(data_signed))
   logging.info("Published Message: " + str(cleartext_message))
   logging.info("End PubSub Publish")
   logging.info(">>>>>>>>>>> END <<<<<<<<<<<")
@@ -119,7 +119,7 @@ if args.mode =="encrypt":
   r = requests.get(cert_url)
   pem = r.json().get(args.recipient_key_id)
   rs = RSACipher(public_key_pem = pem)
-  encrypted_payload = rs.encrypt(json.dumps(cleartext_message))
+  encrypted_payload = rs.encrypt(json.dumps(cleartext_message).encode('utf-8'))
 
   logging.info("Start PubSub Publish")
   publisher = pubsub.PublisherClient()
@@ -128,7 +128,7 @@ if args.mode =="encrypt":
     topic=PUBSUB_TOPIC,
   )
 
-  publisher.publish(topic_name, data=encrypted_payload.encode(), service_account=args.recipient, key_id=args.recipient_key_id)
+  publisher.publish(topic_name, data=json.dumps(encrypted_payload).encode('utf-8'), service_account=args.recipient, key_id=args.recipient_key_id)
   logging.info("Published Message: " + str(encrypted_payload))
   logging.info("End PubSub Publish")
   logging.info(">>>>>>>>>>> END <<<<<<<<<<<")

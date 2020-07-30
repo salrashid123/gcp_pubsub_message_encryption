@@ -32,3 +32,7 @@ The git repo here is broken down into four parts with code samples:
 ## Disclaimer
 
 The techniques and code contained here is not supported by google and is provided as-is (the corresponding git repo is under Apache license). It seeks to provide some options you can investigate, evaluate and employ if you choose to.
+
+(as of 6/30/20, this repo and the code there has been tested with Python 3.7.  
+
+>> in any of these samples, please flush the pubsub queue if you want to test other modes (i.,e messages intended for `sign` cannot be processed by subscribers configured for `decrypt`)

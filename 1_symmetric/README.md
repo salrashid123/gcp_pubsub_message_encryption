@@ -120,7 +120,8 @@ Once the subscriber get this message, we will reverse it by extracting the messa
 
 - Publisher
 ```
-$ python publisher.py  --mode encrypt --service_account '../svc-publisher.json' --project_id esp-demo-197318 --pubsub_topic my-new-topic   --key mBBdNyW0rXX475opSTpK9s6P6jSAhFNT
+$ python publisher.py  --mode encrypt --service_account '../svc-publisher.json' --project_id esp-demo-197318 --pubsub_topic my-new-topic   --key CNSKwpcCEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIGLSL2lQeHvR5byaWT7geg8/utkX0NAvbE4b+dPx53hoGAEQARjUisKXAiAB
+
 2018-06-03 07:12:23,428 INFO >>>>>>>>>>> Start <<<<<<<<<<<
 2018-06-03 07:12:23,429 INFO Starting AES encryption
 2018-06-03 07:12:23,429 INFO End AES encryption
@@ -132,7 +133,8 @@ $ python publisher.py  --mode encrypt --service_account '../svc-publisher.json' 
 
 - Subscriber:
 ```
-$ $ python subscriber.py  --mode decrypt --service_account '../svc-subscriber.json' --project_id esp-demo-197318 --pubsub_subscription my-new-subscriber --key mBBdNyW0rXX475opSTpK9s6P6jSAhFNT
+$ $ python subscriber.py  --mode decrypt --service_account '../svc-subscriber.json' --project_id esp-demo-197318 --pubsub_subscription my-new-subscriber --key CNSKwpcCEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIGLSL2lQeHvR5byaWT7geg8/utkX0NAvbE4b+dPx53hoGAEQARjUisKXAiAB
+
 2018-06-03 07:12:20,815 INFO >>>>>>>>>>> Start <<<<<<<<<<<
 2018-06-03 07:12:20,840 INFO Listening for messages on projects/esp-demo-197318/subscriptions/my-new-subscriber
 2018-06-03 07:12:24,540 INFO ********** Start PubsubMessage
@@ -168,7 +170,7 @@ Here is a sample run:
 - Publisher
 
 ```
-$ python publisher.py  --mode sign --service_account '../svc-publisher.json' --project_id esp-demo-197318 --pubsub_topic my-new-topic  --salt mysalt --key mBBdNyW0rXX475opSTpK9s6P6jSAhFNT
+$ python publisher.py  --mode sign --service_account '../svc-publisher.json' --project_id esp-demo-197318 --pubsub_topic my-new-topic  --key CIGb0YEDEmgKXAoudHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuSG1hY0tleRIoEgQIAxAgGiA5i4pYWl+k03OWG1qPAKbYYMgNSBA/1tgLkMU4ZBdODxgBEAEYgZvRgQMgAQ==
 2018-06-03 07:13:55,022 INFO >>>>>>>>>>> Start <<<<<<<<<<<
 2018-06-03 07:13:55,022 INFO Starting hmac
 2018-06-03 07:13:55,099 INFO End hmac
@@ -182,7 +184,7 @@ $ python publisher.py  --mode sign --service_account '../svc-publisher.json' --p
 - Subscriber
 
 ```
-$ python subscriber.py  --mode verify --service_account '../svc-subscriber.json' --project_id esp-demo-197318 --pubsub_subscription my-new-subscriber --key mBBdNyW0rXX475opSTpK9s6P6jSAhFNT
+$ python subscriber.py  --mode verify --service_account '../svc-subscriber.json' --project_id esp-demo-197318 --pubsub_subscription my-new-subscriber --key CIGb0YEDEmgKXAoudHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuSG1hY0tleRIoEgQIAxAgGiA5i4pYWl+k03OWG1qPAKbYYMgNSBA/1tgLkMU4ZBdODxgBEAEYgZvRgQMgAQ==
 2018-06-03 07:13:52,160 INFO >>>>>>>>>>> Start <<<<<<<<<<<
 2018-06-03 07:13:52,187 INFO Listening for messages on projects/esp-demo-197318/subscriptions/my-new-subscriber
 2018-06-03 07:13:55,937 INFO ********** Start PubsubMessage

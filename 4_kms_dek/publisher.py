@@ -5,13 +5,14 @@ import time
 import logging
 
 from google.cloud import pubsub
+from google.cloud import kms
 import argparse
 import jwt
-import json, time
+import simplejson as json
+import time
 import base64, binascii
 import httplib2
-from apiclient.discovery import build
-from oauth2client.client import GoogleCredentials
+
 
 from expiringdict import ExpiringDict
 
@@ -37,12 +38,6 @@ scope='https://www.googleapis.com/auth/cloudkms https://www.googleapis.com/auth/
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
 
-credentials = GoogleCredentials.get_application_default()
-if credentials.create_scoped_required():
-  credentials = credentials.create_scoped(scope)
-
-http = httplib2.Http()
-credentials.authorize(http)
 
 pubsub_project_id = args.pubsub_project_id
 kms_project_id = args.kms_project_id
@@ -56,7 +51,7 @@ PUBSUB_TOPIC=args.pubsub_topic
 cache = ExpiringDict(max_len=100, max_age_seconds=20)
 
 
-kms_client = build('cloudkms', 'v1')
+kms_client = kms.KeyManagementServiceClient()
 name = 'projects/{}/locations/{}/keyRings/{}/cryptoKeys/{}'.format(
         kms_project_id, location_id, key_ring_id, crypto_key_id)
 
@@ -65,20 +60,17 @@ if args.mode =="sign":
 
   logging.info("Rotating key")
   hh = HMACFunctions()
-  sign_key = hh.getDerivedKey()
-  logging.debug("Generated Derived Key: " + base64.b64encode(sign_key))
+  sign_key = hh.getKey()
+  logging.debug("Generated Derived Key: " + sign_key)
 
   logging.info("Starting KMS encryption API call")
-  crypto_keys = kms_client.projects().locations().keyRings().cryptoKeys()
-  request = crypto_keys.encrypt(
-            name=name,
-            body={
-            'plaintext': base64.b64encode(sign_key).decode('utf-8'),
-            'additionalAuthenticatedData': base64.b64encode(tenantID).decode('utf-8')
-            })
-  response = request.execute()
-  sign_key_wrapped = response['ciphertext'].encode('utf-8')
+
+  dek_encrypted = kms_client.encrypt(name=name, plaintext=sign_key.encode('utf-8'),additional_authenticated_data=tenantID.encode('utf-8'))
+
+  logging.debug("Wrapped dek: " + base64.b64encode(dek_encrypted.ciphertext).decode())
   logging.info("End KMS encryption API call")
+
+  sign_key_wrapped = dek_encrypted.ciphertext
 
   cleartext_message = {
           "data" : "foo".encode(),
@@ -90,8 +82,8 @@ if args.mode =="sign":
           }
   }
 
-  msg_hash = hh.hash(json.dumps(cleartext_message))
-  logging.debug("Generated Signature: " + msg_hash)
+  msg_hash = hh.hash(json.dumps(cleartext_message).encode('utf-8'))
+  logging.debug("Generated Signature: " + msg_hash.decode('utf-8'))
   logging.debug("End signature")
 
   logging.info("Start PubSub Publish")
@@ -101,10 +93,10 @@ if args.mode =="sign":
     topic=PUBSUB_TOPIC,
   )
 
-  publisher.publish(topic_name, data=json.dumps(cleartext_message), kms_key=name, sign_key_wrapped=sign_key_wrapped, signature=msg_hash)
+  publisher.publish(topic_name, data=json.dumps(cleartext_message).encode('utf-8'), kms_key=name, sign_key_wrapped=base64.b64encode(sign_key_wrapped), signature=msg_hash)
   logging.info("Published Message: " + str(cleartext_message))
   logging.info(" with key_id: " + name)
-  logging.debug(" with wrapped signature key " + sign_key_wrapped)
+  logging.debug(" with wrapped signature key " + base64.b64encode(sign_key_wrapped).decode('utf-8') )
 
   logging.debug("End PubSub Publish")
   logging.info(">>>>>>>>>>> END <<<<<<<<<<<")
@@ -116,29 +108,23 @@ if args.mode =="encrypt":
     ## then picking another DEK and sending N messages with that one.
     ## The subscriber will use a cache of DEK values.  If it detects a DEK in the metadata that doesn't 
     ## match whats in its cache, it will use KMS to try to decode it and then keep it in its cache.
-    for x in range(2):
+    for x in range(30):
         logging.info("Rotating symmetric key")
-        # 256bit AES key
-        dek = os.urandom(32)
-        logging.debug("Generated dek: " + base64.b64encode(dek) )
+        
+        ac = AESCipher(encoded_key=None)
+        dek = ac.getKey().encode()
+
+        logging.debug("Generated dek: " + base64.b64encode(dek).decode() )
 
         logging.info("Starting KMS encryption API call")
-        crypto_keys = kms_client.projects().locations().keyRings().cryptoKeys()
-        request = crypto_keys.encrypt(
-                name=name,
-                body={
-                'plaintext': base64.b64encode(dek).decode('utf-8'),
-                'additionalAuthenticatedData': base64.b64encode(tenantID).decode('utf-8')
-                })
-        response = request.execute()
-        dek_encrypted = response['ciphertext'].encode('utf-8')
 
-        logging.debug("Wrapped dek: " + dek_encrypted)
+        dek_encrypted = kms_client.encrypt(name=name, plaintext=dek,additional_authenticated_data=tenantID.encode('utf-8'))
+
+        dek_key_wrapped = dek_encrypted.ciphertext
+        logging.info("Wrapped dek: " +  base64.b64encode(dek_key_wrapped).decode('utf-8'))
         logging.info("End KMS encryption API call")
 
         logging.debug("Starting AES encryption")
-        ac = AESCipher(dek)
-
                 
         cleartext_message = {
                 "data" : "foo".encode(),
@@ -150,7 +136,7 @@ if args.mode =="encrypt":
                 }
         }
 
-        encrypted_message = ac.encrypt(json.dumps(cleartext_message))
+        encrypted_message = ac.encrypt(json.dumps(cleartext_message).encode('utf-8'),associated_data="")
         logging.debug("End AES encryption")
         logging.debug("Encrypted Message with dek: " + encrypted_message)
 
@@ -164,7 +150,7 @@ if args.mode =="encrypt":
         publisher = pubsub.PublisherClient()
         ## Send 3messages using the same symmetric key...
         for x in range(3):
-          publisher.publish(topic_name, data=encrypted_message.encode('utf-8'), kms_key=name, dek_wrapped=dek_encrypted)
+          publisher.publish(topic_name, data=encrypted_message.encode(), kms_key=name, dek_wrapped= base64.b64encode(dek_key_wrapped))
           logging.info("Published Message: " + encrypted_message)
           time.sleep(1)
     logging.info("End PubSub Publish")

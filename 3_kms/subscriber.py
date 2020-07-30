@@ -20,12 +20,11 @@ import os
 import time
 import argparse
 from google.cloud import pubsub
+from google.cloud import kms
 
 import json
 import base64
 import httplib2
-from apiclient.discovery import build
-from oauth2client.client import GoogleCredentials
 
 import logging
 
@@ -48,12 +47,6 @@ scope='https://www.googleapis.com/auth/cloudkms https://www.googleapis.com/auth/
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
 
-credentials = GoogleCredentials.get_application_default()
-if credentials.create_scoped_required():
-  credentials = credentials.create_scoped(scope)
-
-http = httplib2.Http()
-credentials.authorize(http)
 
 project_id = args.project_id
 os.environ['GOOGLE_CLOUD_PROJECT'] = project_id
@@ -63,8 +56,9 @@ kms_location_id = args.kms_location_id
 kms_key_ring_id = args.kms_key_ring_id
 kms_crypto_key_id = args.kms_crypto_key_id
 tenantID = args.tenantID
-kms_client = build('cloudkms', 'v1')
-crypto_keys = kms_client.projects().locations().keyRings().cryptoKeys()
+
+
+kms_client = kms.KeyManagementServiceClient()
 
 subscriber = pubsub.SubscriberClient()
 topic_name = 'projects/{project_id}/topics/{topic}'.format(
@@ -87,16 +81,20 @@ def callback(message):
   name = message.attributes['kms_key']
 
   logging.info("Starting KMS decryption API call")
-  request = crypto_keys.decrypt(
-        name=name,
-        body={
-         'ciphertext': (message.data).decode('utf-8'),
-         'additionalAuthenticatedData': base64.b64encode(tenantID).decode('utf-8')
-        })
-  response = request.execute()
-  decrypted_message =  base64.b64decode(response['plaintext'])
+
+  decrypted_message = kms_client.decrypt(name=name, 
+                  ciphertext=base64.b64decode(message.data),
+                  additional_authenticated_data=tenantID.encode('utf-8'))
+  # request = crypto_keys.decrypt(
+  #       name=name,
+  #       body={
+  #        'ciphertext': (message.data).decode('utf-8'),
+  #        'additionalAuthenticatedData': base64.b64encode(tenantID).decode('utf-8')
+  #       })
+  # response = request.execute()
+  dec =  base64.b64decode(decrypted_message.plaintext)
   logging.info("End KMS decryption API call")
-  logging.info('Decrypted data ' + decrypted_message)
+  logging.info('Decrypted data ' + decrypted_message.plaintext.decode('utf-8'))
   message.ack()
   logging.info("ACK message")
   logging.info("********** End PubsubMessage ")

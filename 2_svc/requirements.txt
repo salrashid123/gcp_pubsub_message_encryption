@@ -6,6 +6,7 @@ httplib2
 oauth2client
 requests
 google-auth-httplib2
-canonicaljson
-google-auth
 cryptography
+expiringdict
+tink
+simplejson
