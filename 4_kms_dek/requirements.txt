@@ -8,5 +8,6 @@ requests
 google-auth-httplib2
 cryptography
 expiringdict
-google-cloud-kms
+# todo upgrade https://github.com/googleapis/python-kms/blob/release-v2.0.0/UPGRADING.md
+google-cloud-kms==1.4.0
 tink
