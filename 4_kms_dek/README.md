@@ -241,7 +241,7 @@ Ok, now that we went through all this...what are the issues with this approach:
     - Additional costs with KMS api operations.
     - Slower (due to network hops).
     - KMS is configured by [regions](https://cloud.google.com/kms/docs/locations). You may need to account for latency in remote API calls from the producer or subscriber.     
-    - Need to stay under PubSub maximum message size of 10GB
+    - Need to stay under PubSub maximum message size of 10MB
     - Dependency on the availability of another Service (in this case KMS)
 
 
