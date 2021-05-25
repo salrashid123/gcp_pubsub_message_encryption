@@ -96,38 +96,83 @@ Anyway..
 #### Output for Encryption
 
 - Publisher
-```bash
-$ python publisher.py  --mode encrypt --service_account publisher.json --kms_project_id mineral-minutia-820  --pubsub_topic my-new-topic   --kms_location us-central1 --kms_key_ring_id mykeyring --kms_key_id key1 --pubsub_project_id mineral-minutia-820
+```log
+$ python publisher.py  --mode encrypt --kms_project_id mineral-minutia-820  --pubsub_topic my-new-topic   --kms_location us-central1 --kms_key_ring_id mykeyring --kms_key_id key1 --pubsub_project_id mineral-minutia-820 --tenantID A
+2021-05-25 08:25:40,223 INFO >>>>>>>>>>> Start Encryption with locally generated key.  <<<<<<<<<<<
+2021-05-25 08:25:40,224 INFO Rotating symmetric key
+2021-05-25 08:25:41,498 INFO Start PubSub Publish
+2021-05-25 08:25:42,006 INFO Published Message: AWsIhGdmF6XEqXcTWaCotxW5ydFd3eVFeEP6LicEgAXon1ys6txwMp0rr5N7VfC3n9B9jQ3gSLHVQ0W8nBUog7IlArwExlv0hEAEhU8wt6rm2pg4hphyXshuqOfRDn0j0sWJsvrVxcQMQo1vF4lc+28Ztib2yMUYQCVGWrtf
+2021-05-25 08:25:42,427 INFO Published MessageID: 2473033678888338
+2021-05-25 08:25:43,938 INFO Published Message: AWsIhGeynl387ioNNGt9f5M2ZiFBEgidUQ5oCp/izqSoa2yI2U3084AMiDuZoxorQDKXAXITIL8OO3iTVnERs0esFN7jcvcBZcKtuiPWhvrySrIHlRxf12eAd4bViNhcPxK+qg/6qWxplZcpw3vEUGbbcpgg5nevY56StPun
+2021-05-25 08:25:44,373 INFO Published MessageID: 2473033795637422
+2021-05-25 08:25:45,869 INFO Published Message: AWsIhGcSv3aLG/UX7DRlLsIomfZ399aeXsMpCpMCGfHzWkyzmqVTHLsWWy7yYMY2qjnAdcmOl/lO4Ieq5WEo/dd9ZNXiKSvYgYoGfcFQltOLf5NQiFGv6xJuNVHdCWerlntQUhRqVie9TJpBMLa6AU6jvsinY8SYXADQjgED
+2021-05-25 08:25:46,077 INFO Published MessageID: 2473033947139049
+2021-05-25 08:25:47,580 INFO Published Message: AWsIhGe00rJuJBFP5pCX1iuPc3l6mY24UCS/nJ8zn2ufe/rhRUyJnxlYgSkx5n3PBWekHDSlHakwxotOVUsrH9gijL4bdLZLaAC7gSyltXNP8mAVdsK3dOn4uaWngwt/a3Fade6drUEl+c1zK2qJoo9TrVC7mlWP+oEFd2Eu
+2021-05-25 08:25:47,795 INFO Published MessageID: 826344344488244
+2021-05-25 08:25:49,329 INFO Published Message: AWsIhGcQaTHQBF2yc3+46/5++CMs2EGwL/46Xt+3l1J6nCBblWwhpU4YtWpHR4IEUryrhi8YWt3SvBm9dzaq9Z4W3phHDlkxfJro+LDnHmg6HJ6IsdEKPW1GbmJy8gi9WQMzEucJDnHtuGf92DlgVOw0JnmHzuakhf2Eszts
+2021-05-25 08:25:49,609 INFO Published MessageID: 2473033734571240
 
-2020-03-23 14:31:26,297 INFO URL being requested: GET https://www.googleapis.com/discovery/v1/apis/cloudkms/v1/rest
-2020-03-23 14:31:26,434 INFO >>>>>>>>>>> Start Encryption with locally generated key.  <<<<<<<<<<<
-2020-03-23 14:31:26,434 INFO Rotating symmetric key
-2020-03-23 14:31:26,434 INFO Starting KMS encryption API call
-2020-03-23 14:31:26,449 INFO URL being requested: POST https://cloudkms.googleapis.com/v1/projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1:encrypt?alt=json
-2020-03-23 14:31:26,682 INFO End KMS encryption API call
-2020-03-23 14:31:26,683 INFO Start PubSub Publish
-2020-03-23 14:31:26,698 INFO Published Message: tjnGOdgyWib3qdrg4Hn+5OAStpq52Gaaz74MyrfewXbKE2BCleROKsUDQxmxUDbpLEAXg2DF15mzrkQe65358KM4uj/tS/0r96RaoSqGCmqNisDuTAv0cOMcB8Aglxf6roTXlhwiDyCJQqGrs6AA+w==
-2020-03-23 14:31:26,699 INFO End PubSub Publish
-2020-03-23 14:31:26,699 INFO >>>>>>>>>>> END <<<<<<<<<<<
 
+2021-05-25 08:25:50,610 INFO Rotating symmetric key           <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+2021-05-25 08:25:51,807 INFO Start PubSub Publish
+2021-05-25 08:25:52,326 INFO Published Message: AUw8g+xWClo5wUsg1dCDf+inOalTWoLMUQEShAIhNGadZlmJgNlqEGS577yJFXLiRwDHdf0bk5F+lnfRRs/IAtPpyq2Vhl2IbgCO/8DJndWF0fm9ZwxVrh4MVW1w4f2oDAz+6EuCr37WEqn7rWmHmZIvsva/3X61VOfLyqv+
+2021-05-25 08:25:52,556 INFO Published MessageID: 2473033963508217
+2021-05-25 08:25:54,066 INFO Published Message: AUw8g+zXVcu7hQZzwvpmlUL24BSgE7E3k2eNyttJNvrp0IcXD3FD4F7WylEYzsGz5Byc/lKMFiABCIN9l1OwKdjopOCR1lOaiYLGIu+KVyKy0Zf9mfNU9dyoto98+7/fSDs2I6azI/EPkNh6HG5sJTwv6Y+hc2CbO/w8PTS7
+2021-05-25 08:25:54,257 INFO Published MessageID: 2473033528745375
+2021-05-25 08:25:55,809 INFO Published Message: AUw8g+zCyBuE7HCWOJn2YBBAgSs11kgQa8Tj0KGBWBw5T2/7kEAThdfK4LuU+INFMTtnbe0gN2CxFaJSqM6Ghj+X9/2eyuyLrUEQOPETs0Hspqv9/xsnC3uiXZofqrOivr16cCUyQIZB42gKiBlYvIjrxjInMWKM15NnFrmO
+2021-05-25 08:25:56,019 INFO Published MessageID: 2472966702915116
 ```
 
 - Subscriber:
-```bash
-$ python subscriber.py  --mode decrypt --service_account subscriber.json --pubsub_project_id mineral-minutia-820 --kms_project_id mineral-minutia-820 --pubsub_topic my-new-topic --pubsub_subscription my-new-subscriber --kms_location us-central1 --kms_key_ring_id mykeyring --kms_key_id key1 
+```log
+$ python subscriber.py  --mode decrypt  --pubsub_project_id mineral-minutia-820 --kms_project_id mineral-minutia-820 \
+    --pubsub_topic my-new-topic --pubsub_subscription my-new-subscriber --kms_location us-central1 --kms_key_ring_id mykeyring --kms_key_id key1 --tenantID A
 
-ImportError: file_cache is unavailable when using oauth2client >= 4.0.0 or google-auth
-2020-03-23 14:31:23,467 INFO URL being requested: GET https://www.googleapis.com/discovery/v1/apis/cloudkms/v1/rest
-2020-03-23 14:31:23,632 INFO >>>>>>>>>>> Start <<<<<<<<<<<
-2020-03-23 14:31:23,634 INFO Listening for messages on projects/mineral-minutia-820/subscriptions/my-new-subscriber
-2020-03-23 14:31:27,632 INFO ********** Start PubsubMessage 
-2020-03-23 14:31:27,632 INFO Received message ID: 444703597866455
-2020-03-23 14:31:27,633 INFO Starting KMS decryption API call
-2020-03-23 14:31:27,636 INFO URL being requested: POST https://cloudkms.googleapis.com/v1/projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1:decrypt?alt=json
-2020-03-23 14:31:27,898 INFO End KMS decryption API call
-2020-03-23 14:31:27,899 INFO Decrypted data {"attributes": {"a": "aaa", "c": "ccc", "b": "bbb", "epoch_time": 1584988286}, "data": "foo"}
-2020-03-23 14:31:27,899 INFO ********** End PubsubMessage 
+2021-05-25 08:25:33,495 INFO >>>>>>>>>>> Start <<<<<<<<<<<
+2021-05-25 08:25:33,497 INFO Listening for messages on projects/mineral-minutia-820/subscriptions/my-new-subscriber
+2021-05-25 08:25:43,462 INFO ********** Start PubsubMessage 
+2021-05-25 08:25:43,462 INFO Received message ID: 2473033678888338
+2021-05-25 08:25:43,462 INFO >>>>>>>>>>>>>>>>   Starting KMS decryption API call                                  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+2021-05-25 08:25:43,740 INFO Decrypted data {"data": "foo", "attributes": {"epoch_time": 1621945541, "a": "aaa", "c": "ccc", "b": "bbb"}}
+2021-05-25 08:25:43,740 INFO ********** End PubsubMessage 
+2021-05-25 08:25:45,331 INFO ********** Start PubsubMessage 
+2021-05-25 08:25:45,331 INFO Received message ID: 2473033795637422
+2021-05-25 08:25:45,332 INFO Using Cached DEK
+2021-05-25 08:25:45,332 INFO Decrypted data {"data": "foo", "attributes": {"epoch_time": 1621945543, "a": "aaa", "c": "ccc", "b": "bbb"}}
+2021-05-25 08:25:45,332 INFO ********** End PubsubMessage 
+2021-05-25 08:25:46,115 INFO ********** Start PubsubMessage 
+2021-05-25 08:25:46,115 INFO Received message ID: 2473033947139049
+2021-05-25 08:25:46,116 INFO Using Cached DEK
+2021-05-25 08:25:46,116 INFO Decrypted data {"data": "foo", "attributes": {"epoch_time": 1621945545, "a": "aaa", "c": "ccc", "b": "bbb"}}
+2021-05-25 08:25:46,116 INFO ********** End PubsubMessage 
+2021-05-25 08:25:47,830 INFO ********** Start PubsubMessage 
+2021-05-25 08:25:47,831 INFO Received message ID: 826344344488244
+2021-05-25 08:25:47,831 INFO Using Cached DEK
+2021-05-25 08:25:47,831 INFO Decrypted data {"data": "foo", "attributes": {"epoch_time": 1621945547, "a": "aaa", "c": "ccc", "b": "bbb"}}
+2021-05-25 08:25:47,831 INFO ********** End PubsubMessage 
+2021-05-25 08:25:50,613 INFO ********** Start PubsubMessage 
+2021-05-25 08:25:50,613 INFO Received message ID: 2473033734571240
+2021-05-25 08:25:50,614 INFO Using Cached DEK
+2021-05-25 08:25:50,614 INFO Decrypted data {"data": "foo", "attributes": {"epoch_time": 1621945548, "a": "aaa", "c": "ccc", "b": "bbb"}}
+2021-05-25 08:25:50,614 INFO ********** End PubsubMessage 
+2021-05-25 08:25:52,591 INFO ********** Start PubsubMessage 
+2021-05-25 08:25:52,591 INFO Received message ID: 2473033963508217
 
+
+2021-05-25 08:25:52,591 INFO >>>>>>>>>>>>>>>>   Starting KMS decryption API call                                  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+2021-05-25 08:25:52,976 INFO Decrypted data {"data": "foo", "attributes": {"epoch_time": 1621945551, "a": "aaa", "c": "ccc", "b": "bbb"}}
+2021-05-25 08:25:52,976 INFO ********** End PubsubMessage 
+2021-05-25 08:25:54,298 INFO ********** Start PubsubMessage 
+2021-05-25 08:25:54,299 INFO Received message ID: 2473033528745375
+2021-05-25 08:25:54,299 INFO Using Cached DEK
+2021-05-25 08:25:54,299 INFO Decrypted data {"data": "foo", "attributes": {"epoch_time": 1621945553, "a": "aaa", "c": "ccc", "b": "bbb"}}
+2021-05-25 08:25:54,299 INFO ********** End PubsubMessage 
+2021-05-25 08:25:56,060 INFO ********** Start PubsubMessage 
+2021-05-25 08:25:56,060 INFO Received message ID: 2472966702915116
+2021-05-25 08:25:56,060 INFO Using Cached DEK
+2021-05-25 08:25:56,061 INFO Decrypted data {"data": "foo", "attributes": {"epoch_time": 1621945555, "a": "aaa", "c": "ccc", "b": "bbb"}}
+2021-05-25 08:25:56,061 INFO ********** End PubsubMessage
 ```
 
 > The code all this can be found in the Appendix
@@ -142,35 +187,123 @@ For signing, we do something similar where we're singing just what we would put 
 
 - Publisher
 
-```bash
-$ python publisher.py  --mode sign --service_account publisher.json --kms_project_id mineral-minutia-820  --pubsub_topic my-new-topic   --kms_location us-central1 --kms_key_ring_id mykeyring --kms_key_id key1 --pubsub_project_id mineral-minutia-820
+```log
+$ python publisher.py  --mode sign --kms_project_id mineral-minutia-820  --pubsub_topic my-new-topic   --kms_location us-central1 --kms_key_ring_id mykeyring --kms_key_id key1 --pubsub_project_id mineral-minutia-820 --tenantID A
 
-2020-03-23 14:32:33,110 INFO URL being requested: GET https://www.googleapis.com/discovery/v1/apis/cloudkms/v1/rest
-2020-03-23 14:32:33,269 INFO >>>>>>>>>>> Start Sign with with locally generated key. <<<<<<<<<<<
-2020-03-23 14:32:33,269 INFO Rotating key
-2020-03-23 14:32:33,331 INFO Starting KMS encryption API call
-2020-03-23 14:32:33,335 INFO URL being requested: POST https://cloudkms.googleapis.com/v1/projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1:encrypt?alt=json
-2020-03-23 14:32:33,564 INFO End KMS encryption API call
-2020-03-23 14:32:33,565 INFO Start PubSub Publish
-2020-03-23 14:32:33,577 INFO Published Message: {'attributes': {'a': 'aaa', 'c': 'ccc', 'b': 'bbb', 'epoch_time': 1584988353}, 'data': 'foo'}
-2020-03-23 14:32:33,577 INFO  with key_id: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
-2020-03-23 14:32:33,578 INFO >>>>>>>>>>> END <<<<<<<<<<<
+2021-05-25 08:45:15,239 INFO >>>>>>>>>>> Start Sign with with locally generated key. <<<<<<<<<<<
+
+2021-05-25 08:45:15,239 INFO Rotating key<<<<<<<<<<<<
+
+2021-05-25 08:45:16,557 INFO Start PubSub Publish
+2021-05-25 08:45:16,558 INFO Published Message: {'data': b'foo', 'attributes': {'epoch_time': 1621946716, 'a': 'aaa', 'c': 'ccc', 'b': 'bbb'}}
+2021-05-25 08:45:16,558 INFO  with key_id: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-05-25 08:45:17,071 INFO Published MessageID: 826344803268096
+2021-05-25 08:45:17,072 INFO Start PubSub Publish
+2021-05-25 08:45:17,073 INFO Published Message: {'data': b'foo', 'attributes': {'epoch_time': 1621946717, 'a': 'aaa', 'c': 'ccc', 'b': 'bbb'}}
+2021-05-25 08:45:17,073 INFO  with key_id: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-05-25 08:45:17,123 INFO Published MessageID: 2473034819508588
+2021-05-25 08:45:17,124 INFO Start PubSub Publish
+2021-05-25 08:45:17,125 INFO Published Message: {'data': b'foo', 'attributes': {'epoch_time': 1621946717, 'a': 'aaa', 'c': 'ccc', 'b': 'bbb'}}
+2021-05-25 08:45:17,125 INFO  with key_id: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-05-25 08:45:17,174 INFO Published MessageID: 826344897257698
+2021-05-25 08:45:17,174 INFO Start PubSub Publish
+2021-05-25 08:45:17,176 INFO Published Message: {'data': b'foo', 'attributes': {'epoch_time': 1621946717, 'a': 'aaa', 'c': 'ccc', 'b': 'bbb'}}
+2021-05-25 08:45:17,176 INFO  with key_id: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-05-25 08:45:17,329 INFO Published MessageID: 826344946739900
+2021-05-25 08:45:17,330 INFO Start PubSub Publish
+2021-05-25 08:45:17,331 INFO Published Message: {'data': b'foo', 'attributes': {'epoch_time': 1621946717, 'a': 'aaa', 'c': 'ccc', 'b': 'bbb'}}
+2021-05-25 08:45:17,331 INFO  with key_id: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-05-25 08:45:17,475 INFO Published MessageID: 826345331298126
+
+2021-05-25 08:45:17,475 INFO Rotating key  <<<<<<<<<<<<
+
+2021-05-25 08:45:18,649 INFO Start PubSub Publish
+2021-05-25 08:45:18,650 INFO Published Message: {'data': b'foo', 'attributes': {'epoch_time': 1621946718, 'a': 'aaa', 'c': 'ccc', 'b': 'bbb'}}
+2021-05-25 08:45:18,650 INFO  with key_id: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-05-25 08:45:18,832 INFO Published MessageID: 2473035463018475
+2021-05-25 08:45:18,833 INFO Start PubSub Publish
+2021-05-25 08:45:18,834 INFO Published Message: {'data': b'foo', 'attributes': {'epoch_time': 1621946718, 'a': 'aaa', 'c': 'ccc', 'b': 'bbb'}}
+2021-05-25 08:45:18,834 INFO  with key_id: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-05-25 08:45:19,011 INFO Published MessageID: 2473035405443005
+2021-05-25 08:45:19,012 INFO Start PubSub Publish
+2021-05-25 08:45:19,013 INFO Published Message: {'data': b'foo', 'attributes': {'epoch_time': 1621946719, 'a': 'aaa', 'c': 'ccc', 'b': 'bbb'}}
+2021-05-25 08:45:19,013 INFO  with key_id: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-05-25 08:45:19,061 INFO Published MessageID: 2473034719755701
+2021-05-25 08:45:19,062 INFO Start PubSub Publish
+2021-05-25 08:45:19,063 INFO Published Message: {'data': b'foo', 'attributes': {'epoch_time': 1621946719, 'a': 'aaa', 'c': 'ccc', 'b': 'bbb'}}
+2021-05-25 08:45:19,063 INFO  with key_id: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-05-25 08:45:19,105 INFO Published MessageID: 2473034819505100
+2021-05-25 08:45:19,106 INFO Start PubSub Publish
+2021-05-25 08:45:19,107 INFO Published Message: {'data': b'foo', 'attributes': {'epoch_time': 1621946719, 'a': 'aaa', 'c': 'ccc', 'b': 'bbb'}}
+2021-05-25 08:45:19,107 INFO  with key_id: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-05-25 08:45:19,154 INFO Published MessageID: 2473035348079877
 ```
 
 - Subscriber
-```
-$  python subscriber.py  --mode verify --service_account subscriber.json --pubsub_project_id mineral-minutia-820 --kms_project_id mineral-minutia-820 --pubsub_topic my-new-topic --pubsub_subscription my-new-subscriber --kms_location us-central1 --kms_key_ring_id mykeyring --kms_key_id key1 
+```log
+$ python subscriber.py  --mode verify  --pubsub_project_id mineral-minutia-820 --kms_project_id mineral-minutia-820 \
+   --pubsub_topic my-new-topic --pubsub_subscription my-new-subscriber --kms_location us-central1 --kms_key_ring_id mykeyring --kms_key_id key1 --tenantID A
 
-2020-03-23 14:32:25,342 INFO URL being requested: GET https://www.googleapis.com/discovery/v1/apis/cloudkms/v1/rest
-2020-03-23 14:32:25,670 INFO >>>>>>>>>>> Start <<<<<<<<<<<
-2020-03-23 14:32:25,673 INFO Listening for messages on projects/mineral-minutia-820/subscriptions/my-new-subscriber
-2020-03-23 14:32:34,090 INFO ********** Start PubsubMessage 
-2020-03-23 14:32:34,090 INFO Received message ID: 444703370594175
-2020-03-23 14:32:34,091 INFO Starting KMS decryption API call
-2020-03-23 14:32:34,094 INFO URL being requested: POST https://cloudkms.googleapis.com/v1/projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1:decrypt?alt=json
-2020-03-23 14:32:34,331 INFO End KMS decryption API call
-2020-03-23 14:32:34,332 INFO Message authenticity verified
+2021-05-25 08:45:24,790 INFO >>>>>>>>>>> Start <<<<<<<<<<<
+2021-05-25 08:45:24,793 INFO Listening for messages on projects/mineral-minutia-820/subscriptions/my-new-subscriber
+2021-05-25 08:45:26,116 INFO ********** Start PubsubMessage 
+2021-05-25 08:45:26,116 INFO Received message ID: 826345331298126
+2021-05-25 08:45:26,117 INFO ********** Start PubsubMessage 
+2021-05-25 08:45:26,117 INFO Received message publish_time: 2021-05-25 12:45:17.470000+00:00
+2021-05-25 08:45:26,119 INFO Received message ID: 2473034819505100
+2021-05-25 08:45:26,120 INFO Received message attributes["kms_key"]: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-05-25 08:45:26,120 INFO Received message publish_time: 2021-05-25 12:45:19.103000+00:00
+2021-05-25 08:45:26,121 INFO Received message attributes["sign_key_wrapped"]: EsMBCiUAmT+VVbTb+/mvNz5VOqGoQMoJfkJQkiZXHYSKiXDcfFNVgXllEpkBACsKZVKYe7S1R/4TWYsFbai8I617Je3B/Yk3wWDcvQTmIZ31LFXR1ZZkOOSliSsoqGPbxbfy+jgcF/rFTco5Eco2wNPjl2yK+gtY5FqLyTCVGhvqow2TwifGzqzqpRqpO+DQ4I/RAjRjRf0l7TdFJ9d4QVYzDiG5ZdAXzXkXYNyxRAZJ81kq01MAO0kqv/e92g//l0cf/9dBGkIIs5H1vgESOgoudHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuSG1hY0tleRABGLOR9b4BIAE=
+2021-05-25 08:45:26,121 INFO Received message attributes["kms_key"]: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-05-25 08:45:26,121 INFO Received message attributes["signature"]: ARfdSLM+fmeUtWnFwv4vzOfye/DF8+Z7aTIUpThMsyCAwOwNxw==
+2021-05-25 08:45:26,122 INFO Received message attributes["sign_key_wrapped"]: EsMBCiUAmT+VVe+UyoltoBGrQXL7ezfjQDQivHtpN1LvtCYiYlDjemQPEpkBACsKZVK/39cf9chgTxCnDAEQy7tdJ+2bFXSZcwCGY51H/z4hLptEyXFgAqQTgukTmCt6tSzU8+SLcQe629ShhXDM7eaAXsqpCL0iht6ZFV3amVmeSFLvIrhHPaEa1WxDuzNAdRYqR5wHKrl4EyzSSrWM6PzM0XFZkqsrBRnSW1xNb47a56dvP3G8H67VpgoFKfjo78Pm5QyvGkIIwsjpkAcSOgoudHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuSG1hY0tleRABGMLI6ZAHIAE=
 
+2021-05-25 08:45:26,122 INFO >>>>>>>>>>>>>>>>   Starting KMS decryption API call
+
+2021-05-25 08:45:26,122 INFO Received message attributes["signature"]: AXIaZEIBrxUFxhlnh4vkRXTeXvddNjAmNOa1Vn62ocKM41lReg==
+2021-05-25 08:45:26,486 INFO End KMS decryption API call
+2021-05-25 08:45:26,489 INFO Message authenticity verified
+
+
+2021-05-25 08:45:26,488 INFO >>>>>>>>>>>>>>>>   Starting KMS decryption API call  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+
+2021-05-25 08:45:26,488 INFO ********** Start PubsubMessage 
+2021-05-25 08:45:26,896 INFO End KMS decryption API call
+2021-05-25 08:45:26,897 INFO Received message ID: 826344946739900
+2021-05-25 08:45:26,898 INFO Received message publish_time: 2021-05-25 12:45:17.326000+00:00
+2021-05-25 08:45:26,898 INFO Message authenticity verified
+2021-05-25 08:45:26,898 INFO Received message attributes["kms_key"]: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-05-25 08:45:26,899 INFO Received message attributes["sign_key_wrapped"]: EsMBCiUAmT+VVbTb+/mvNz5VOqGoQMoJfkJQkiZXHYSKiXDcfFNVgXllEpkBACsKZVKYe7S1R/4TWYsFbai8I617Je3B/Yk3wWDcvQTmIZ31LFXR1ZZkOOSliSsoqGPbxbfy+jgcF/rFTco5Eco2wNPjl2yK+gtY5FqLyTCVGhvqow2TwifGzqzqpRqpO+DQ4I/RAjRjRf0l7TdFJ9d4QVYzDiG5ZdAXzXkXYNyxRAZJ81kq01MAO0kqv/e92g//l0cf/9dBGkIIs5H1vgESOgoudHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuSG1hY0tleRABGLOR9b4BIAE=
+2021-05-25 08:45:26,899 INFO Received message attributes["signature"]: ARfdSLM+fmeUtWnFwv4vzOfye/DF8+Z7aTIUpThMsyCAwOwNxw==
+2021-05-25 08:45:26,900 INFO Using Cached DEK
+2021-05-25 08:45:26,900 INFO Message authenticity verified
+2021-05-25 08:45:26,933 INFO ********** Start PubsubMessage 
+2021-05-25 08:45:26,933 INFO ********** Start PubsubMessage 
+2021-05-25 08:45:26,934 INFO Received message ID: 826344803268096
+2021-05-25 08:45:26,937 INFO Received message ID: 2473034819508588
+2021-05-25 08:45:26,939 INFO Received message publish_time: 2021-05-25 12:45:17.034000+00:00
+2021-05-25 08:45:26,940 INFO Received message publish_time: 2021-05-25 12:45:17.119000+00:00
+2021-05-25 08:45:26,940 INFO Received message attributes["kms_key"]: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-05-25 08:45:26,941 INFO Received message attributes["kms_key"]: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-05-25 08:45:26,941 INFO Received message attributes["sign_key_wrapped"]: EsMBCiUAmT+VVbTb+/mvNz5VOqGoQMoJfkJQkiZXHYSKiXDcfFNVgXllEpkBACsKZVKYe7S1R/4TWYsFbai8I617Je3B/Yk3wWDcvQTmIZ31LFXR1ZZkOOSliSsoqGPbxbfy+jgcF/rFTco5Eco2wNPjl2yK+gtY5FqLyTCVGhvqow2TwifGzqzqpRqpO+DQ4I/RAjRjRf0l7TdFJ9d4QVYzDiG5ZdAXzXkXYNyxRAZJ81kq01MAO0kqv/e92g//l0cf/9dBGkIIs5H1vgESOgoudHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuSG1hY0tleRABGLOR9b4BIAE=
+2021-05-25 08:45:26,941 INFO Received message attributes["sign_key_wrapped"]: EsMBCiUAmT+VVbTb+/mvNz5VOqGoQMoJfkJQkiZXHYSKiXDcfFNVgXllEpkBACsKZVKYe7S1R/4TWYsFbai8I617Je3B/Yk3wWDcvQTmIZ31LFXR1ZZkOOSliSsoqGPbxbfy+jgcF/rFTco5Eco2wNPjl2yK+gtY5FqLyTCVGhvqow2TwifGzqzqpRqpO+DQ4I/RAjRjRf0l7TdFJ9d4QVYzDiG5ZdAXzXkXYNyxRAZJ81kq01MAO0kqv/e92g//l0cf/9dBGkIIs5H1vgESOgoudHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuSG1hY0tleRABGLOR9b4BIAE=
+2021-05-25 08:45:26,941 INFO Received message attributes["signature"]: ARfdSLPO5oao9GMD7ibULrlH+Hxas7yUDuZ9QJSI2qOInTuXEw==
+2021-05-25 08:45:26,942 INFO Received message attributes["signature"]: ARfdSLM+fmeUtWnFwv4vzOfye/DF8+Z7aTIUpThMsyCAwOwNxw==
+2021-05-25 08:45:26,942 INFO Using Cached DEK
+2021-05-25 08:45:26,942 INFO Using Cached DEK
+2021-05-25 08:45:26,942 INFO Message authenticity verified
+2021-05-25 08:45:26,943 INFO Message authenticity verified
+2021-05-25 08:45:26,975 INFO ********** Start PubsubMessage 
+2021-05-25 08:45:26,975 INFO ********** Start PubsubMessage 
+2021-05-25 08:45:26,976 INFO Received message ID: 826344897257698
+2021-05-25 08:45:26,976 INFO ********** Start PubsubMessage 
+2021-05-25 08:45:26,978 INFO Received message ID: 2473035463018475
+2021-05-25 08:45:26,979 INFO Received message publish_time: 2021-05-25 12:45:17.170000+00:00
+2021-05-25 08:45:26,979 INFO Received message ID: 2473035348079877
+2021-05-25 08:45:26,979 INFO Received message publish_time: 2021-05-25 12:45:18.830000+00:00
+...
+...
 ```
 
 ## Execution Latency

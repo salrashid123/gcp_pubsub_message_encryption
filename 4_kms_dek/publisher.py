@@ -23,7 +23,7 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
 
 parser = argparse.ArgumentParser(description='Publish encrypted message with KMS only')
-parser.add_argument('--service_account',required=True,help='publisher service_acount credentials file')
+parser.add_argument('--service_account',required=False,help='publisher service_acount credentials file')
 parser.add_argument('--mode',required=True, choices=['encrypt','sign'], help='mode must be encrypt or sign')
 parser.add_argument('--kms_project_id',required=True, help='publisher KMS project')
 parser.add_argument('--kms_location',required=True, help='KMS Location')
@@ -36,8 +36,8 @@ args = parser.parse_args()
 
 scope='https://www.googleapis.com/auth/cloudkms https://www.googleapis.com/auth/pubsub'
 
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
-
+if args.service_account != None:
+  os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_accoun
 
 pubsub_project_id = args.pubsub_project_id
 kms_project_id = args.kms_project_id
@@ -57,48 +57,45 @@ name = 'projects/{}/locations/{}/keyRings/{}/cryptoKeys/{}'.format(
 
 if args.mode =="sign":
   logging.info(">>>>>>>>>>> Start Sign with with locally generated key. <<<<<<<<<<<")
+  for x in range(5):
 
-  logging.info("Rotating key")
-  hh = HMACFunctions()
-  sign_key = hh.getKey()
-  logging.debug("Generated Derived Key: " + sign_key)
+        logging.info("Rotating key")
 
-  logging.info("Starting KMS encryption API call")
+        keyURI="gcp-kms://" + name
+        hh = HMACFunctions(encoded_key=None,key_uri=keyURI)
+        sign_key_wrapped = hh.getKey()
+        hh = HMACFunctions(encoded_key=sign_key_wrapped,key_uri=keyURI)
+        publisher = pubsub.PublisherClient()
 
-  dek_encrypted = kms_client.encrypt(name=name, plaintext=sign_key.encode('utf-8'),additional_authenticated_data=tenantID.encode('utf-8'))
+        for x in range(5):
+                cleartext_message = {
+                        "data" : "foo".encode(),
+                        "attributes" : {
+                        'epoch_time':  int(time.time()),
+                        'a': "aaa",
+                        'c': "ccc",
+                        'b': "bbb"
+                        }
+                }
 
-  logging.debug("Wrapped dek: " + base64.b64encode(dek_encrypted.ciphertext).decode())
-  logging.info("End KMS encryption API call")
+                msg_hash = hh.hash(json.dumps(cleartext_message).encode('utf-8'))
+                logging.debug("Generated Signature: " + msg_hash.decode('utf-8'))
+                logging.debug("End signature")
 
-  sign_key_wrapped = dek_encrypted.ciphertext
+                logging.info("Start PubSub Publish")
 
-  cleartext_message = {
-          "data" : "foo".encode(),
-          "attributes" : {
-              'epoch_time':  int(time.time()),
-              'a': "aaa",
-              'c': "ccc",
-              'b': "bbb"
-          }
-  }
+                topic_name = 'projects/{project_id}/topics/{topic}'.format(
+                project_id=pubsub_project_id,
+                topic=PUBSUB_TOPIC,
+                )
 
-  msg_hash = hh.hash(json.dumps(cleartext_message).encode('utf-8'))
-  logging.debug("Generated Signature: " + msg_hash.decode('utf-8'))
-  logging.debug("End signature")
+                resp=publisher.publish(topic_name, data=json.dumps(cleartext_message).encode('utf-8'), kms_key=name, sign_key_wrapped=sign_key_wrapped, signature=msg_hash)
+                logging.info("Published Message: " + str(cleartext_message))
+                logging.info(" with key_id: " + name)
+                logging.debug(" with wrapped signature key " + sign_key_wrapped )
+                logging.info("Published MessageID: " + resp.result())
 
-  logging.info("Start PubSub Publish")
-  publisher = pubsub.PublisherClient()
-  topic_name = 'projects/{project_id}/topics/{topic}'.format(
-    project_id=pubsub_project_id,
-    topic=PUBSUB_TOPIC,
-  )
-
-  publisher.publish(topic_name, data=json.dumps(cleartext_message).encode('utf-8'), kms_key=name, sign_key_wrapped=base64.b64encode(sign_key_wrapped), signature=msg_hash)
-  logging.info("Published Message: " + str(cleartext_message))
-  logging.info(" with key_id: " + name)
-  logging.debug(" with wrapped signature key " + base64.b64encode(sign_key_wrapped).decode('utf-8') )
-
-  logging.debug("End PubSub Publish")
+                logging.debug("End PubSub Publish")
   logging.info(">>>>>>>>>>> END <<<<<<<<<<<")
 
 if args.mode =="encrypt":
@@ -110,48 +107,40 @@ if args.mode =="encrypt":
     ## match whats in its cache, it will use KMS to try to decode it and then keep it in its cache.
     for x in range(30):
         logging.info("Rotating symmetric key")
-        
-        ac = AESCipher(encoded_key=None)
-        dek = ac.getKey().encode()
 
-        logging.debug("Generated dek: " + base64.b64encode(dek).decode() )
+        keyURI="gcp-kms://" + name
 
-        logging.info("Starting KMS encryption API call")
+        cc = AESCipher(encoded_key=None,key_uri=keyURI)
+        dek = cc.getKey()
+        ac = AESCipher(encoded_key=dek,key_uri=keyURI)
 
-        dek_encrypted = kms_client.encrypt(name=name, plaintext=dek,additional_authenticated_data=tenantID.encode('utf-8'))
-
-        dek_key_wrapped = dek_encrypted.ciphertext
-        logging.info("Wrapped dek: " +  base64.b64encode(dek_key_wrapped).decode('utf-8'))
-        logging.info("End KMS encryption API call")
-
-        logging.debug("Starting AES encryption")
-                
-        cleartext_message = {
-                "data" : "foo".encode(),
-                "attributes" : {
-                        'epoch_time':  int(time.time()),
-                        'a': "aaa",
-                        'c': "ccc",
-                        'b': "bbb"
-                }
-        }
-
-        encrypted_message = ac.encrypt(json.dumps(cleartext_message).encode('utf-8'),associated_data="")
-        logging.debug("End AES encryption")
-        logging.debug("Encrypted Message with dek: " + encrypted_message)
-
-
+        logging.debug("Generated dek: " + dek )
+        publisher = pubsub.PublisherClient()
         logging.info("Start PubSub Publish")
-        publisher = pubsub.PublisherClient()
-        topic_name = 'projects/{project_id}/topics/{topic}'.format(
-                project_id=pubsub_project_id,
-                topic=PUBSUB_TOPIC,
-        )
-        publisher = pubsub.PublisherClient()
-        ## Send 3messages using the same symmetric key...
-        for x in range(3):
-          publisher.publish(topic_name, data=encrypted_message.encode(), kms_key=name, dek_wrapped= base64.b64encode(dek_key_wrapped))
-          logging.info("Published Message: " + encrypted_message)
-          time.sleep(1)
+         ## Send 3messages using the same symmetric key...
+        for x in range(5):
+                cleartext_message = {
+                        "data" : "foo".encode(),
+                        "attributes" : {
+                                'epoch_time':  int(time.time()),
+                                'a': "aaa",
+                                'c': "ccc",
+                                'b': "bbb"
+                        }
+                }
+                logging.debug("Start AES encryption")
+                encrypted_message = ac.encrypt(json.dumps(cleartext_message).encode('utf-8'),associated_data=tenantID)
+                logging.debug("End AES encryption")
+                logging.debug("Encrypted Message with dek: " + encrypted_message)
+
+                topic_name = 'projects/{project_id}/topics/{topic}'.format(
+                        project_id=pubsub_project_id,
+                        topic=PUBSUB_TOPIC,
+                )
+
+                resp=publisher.publish(topic_name, data=encrypted_message.encode(), kms_key=name, dek_wrapped=dek)
+                logging.info("Published Message: " + encrypted_message)
+                logging.info("Published MessageID: " + resp.result())
+                time.sleep(1)
     logging.info("End PubSub Publish")
     logging.info(">>>>>>>>>>> END <<<<<<<<<<<")

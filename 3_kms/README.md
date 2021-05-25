@@ -57,34 +57,32 @@ Easy enough, right?  Yes its too easy but has some severe practical limitations 
 #### Output
 
 - Publisher
-```
-$ python publisher.py  --service_account '../svc-publisher.json' --project_id esp-demo-197318 --pubsub_topic my-new-topic  --kms_location_id us-central1 --kms_key_ring_id mykeyring --kms_crypto_key_id key1
-2018-06-03 09:02:30,321 INFO >>>>>>>>>>> Start <<<<<<<<<<<
-2018-06-03 09:02:30,329 INFO Starting KMS encryption API call
-2018-06-03 09:02:30,330 INFO URL being requested: POST https://cloudkms.googleapis.com/v1/projects/esp-demo-197318/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1:encrypt?alt=json
-2018-06-03 09:02:30,366 DEBUG Making request: POST https://accounts.google.com/o/oauth2/token
-2018-06-03 09:02:31,022 INFO End KMS encryption API call
-2018-06-03 09:02:31,023 INFO Wrapped data: CiQA+6RgJ+8wcRJrnwHz7QDVT3ygMc9c3r4k5ATzhvNdJEPvZgkShQEAR0qCRzPdnoMUpDtq/1Kueo5XTJELdpyePJ9KRTbY2d2n3stlFk691NSHb/TyklFQP06BRBDjzBKuzaBXaGglpfMGUPZtEl++7lo78JzflVhgGkzDJM+9cR4lA2xnDGlfnTvtNtXhryY930wVDg/ILJbOG/Fy8dtDWtFSPLOiDmwspNp/
-2018-06-03 09:02:31,023 INFO Start PubSub Publish
-2018-06-03 09:02:31,045 INFO Published Message: CiQA+6RgJ+8wcRJrnwHz7QDVT3ygMc9c3r4k5ATzhvNdJEPvZgkShQEAR0qCRzPdnoMUpDtq/1Kueo5XTJELdpyePJ9KRTbY2d2n3stlFk691NSHb/TyklFQP06BRBDjzBKuzaBXaGglpfMGUPZtEl++7lo78JzflVhgGkzDJM+9cR4lA2xnDGlfnTvtNtXhryY930wVDg/ILJbOG/Fy8dtDWtFSPLOiDmwspNp/
-2018-06-03 09:02:31,046 INFO End PubSub Publish
-2018-06-03 09:02:31,046 INFO >>>>>>>>>>> END <<<<<<<<<<<
+```log
+$ python publisher.py   --project_id mineral-minutia-820 --pubsub_topic my-new-topic  --kms_location_id us-central1 --kms_key_ring_id mykeyring --kms_crypto_key_id key1
+
+2021-05-25 07:44:42,039 INFO >>>>>>>>>>> Start <<<<<<<<<<<
+2021-05-25 07:44:42,456 INFO End KMS encryption API call
+2021-05-25 07:44:42,456 INFO Start PubSub Publish
+2021-05-25 07:44:42,960 INFO Published Message: CiUAmT+VVdb5NBYXakpiJoqtzwit3teHpAB26kuFCd/SARo1k134EoYBACsKZVIClk3OhBLgHVL29nK36E+J3o670+lDUSKYq99VjEAMZpvjFC23P2M3+6sQmLtDH4zJS/mrMSvXRUsP83CiiqQc5ATNZBj8minAA6IefauJfgjRVSahwZaDjazFPlT7blPs4AGTbnQOk3IAp8BmA4IUMH1wyTPTs+BIerTzo7V7LqM=
+2021-05-25 07:44:43,355 INFO Published MessageID: 2472904674938088
+2021-05-25 07:44:43,355 INFO End PubSub Publish
+2021-05-25 07:44:43,355 INFO >>>>>>>>>>> END <<<<<<<<<<<
 ```
 
 - Subscriber
-```
-$ python subscriber.py   --service_account '../svc-subscriber.json' --project_id esp-demo-197318 --pubsub_topic my-new-topic  --pubsub_subscription my-new-subscriber --kms_location_id us-central1 --kms_key_ring_id mykeyring --kms_crypto_key_id key1
-2018-06-03 09:02:36,075 INFO ********** Start PubsubMessage
-2018-06-03 09:02:36,075 INFO Received message ID: 109168209971096
-2018-06-03 09:02:36,076 INFO Received message publish_time: seconds: 1528041751 nanos: 556000000
-2018-06-03 09:02:36,076 INFO Received message attributes["kms_key"]: projects/esp-demo-197318/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
-2018-06-03 09:02:36,077 INFO Starting KMS decryption API call
-2018-06-03 09:02:36,079 INFO URL being requested: POST https://cloudkms.googleapis.com/v1/projects/esp-demo-197318/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1:decrypt?alt=json
-2018-06-03 09:02:36,141 DEBUG Making request: POST https://accounts.google.com/o/oauth2/token
-2018-06-03 09:02:36,756 INFO End KMS decryption API call
-2018-06-03 09:02:36,757 INFO Decrypted data {"attributes": {"a": "aaa", "c": "ccc", "b": "bbb", "epoch_time": 1528041750}, "data": "foo"}
-2018-06-03 09:02:36,757 INFO ACK message
-2018-06-03 09:02:36,758 INFO ********** End PubsubMessage
+```log
+$ python subscriber.py  --project_id mineral-minutia-820 --pubsub_topic my-new-topic  --pubsub_subscription my-new-subscriber --kms_location_id us-central1 --kms_key_ring_id mykeyring --kms_crypto_key_id key1
+
+2021-05-25 07:44:18,938 INFO Listening for messages on projects/mineral-minutia-820/subscriptions/my-new-subscriber
+2021-05-25 07:44:44,357 INFO ********** Start PubsubMessage 
+2021-05-25 07:44:44,357 INFO Received message ID: 2472904674938088
+2021-05-25 07:44:44,358 INFO Received message publish_time: 2021-05-25 11:44:43.334000+00:00
+2021-05-25 07:44:44,358 INFO Received message attributes["kms_key"]: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-05-25 07:44:44,358 INFO Starting KMS decryption API call
+2021-05-25 07:44:44,788 INFO End KMS decryption API call
+2021-05-25 07:44:44,788 INFO Decrypted data {"data": "foo", "attributes": {"epoch_time": 1621943082, "a": "aaa", "c": "ccc", "b": "bbb"}}
+2021-05-25 07:44:44,788 INFO ACK message
+2021-05-25 07:44:44,790 INFO ********** End PubsubMessage
 ```
 
 ## Execution Latency

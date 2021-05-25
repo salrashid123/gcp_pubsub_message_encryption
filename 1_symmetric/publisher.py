@@ -40,7 +40,7 @@ logging.basicConfig(level=logging.INFO,
 
 parser = argparse.ArgumentParser(description='Publish encrypted or signed message')
 parser.add_argument('--mode',required=True, choices=['encrypt','sign'], help='mode must be encrypt or sign')
-parser.add_argument('--service_account',required=True,help='publisher service_acount credentials file')
+parser.add_argument('--service_account',required=False,help='publisher service_acount credentials file')
 parser.add_argument('--project_id',required=True, help='publisher projectID')
 parser.add_argument('--pubsub_topic',required=True, help='pubsub_topic to publish message')
 parser.add_argument('--key',required=True, help='key, for encryption, use 32bytes, for sign, use use complex passphrase')
@@ -48,7 +48,8 @@ args = parser.parse_args()
 
 scope='https://www.googleapis.com/auth/pubsub'
 
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
+if args.service_account != None:
+  os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
 
 credentials = GoogleCredentials.get_application_default()
 if credentials.create_scoped_required():
@@ -92,8 +93,9 @@ if args.mode=='encrypt':
     msg = ac.encrypt(json.dumps(cleartext_message).encode('utf-8'),associated_data='')
     logging.info("End AES encryption")
     logging.info("Start PubSub Publish")
-    publisher.publish(topic_name, data=msg.encode('utf-8'))
+    resp=publisher.publish(topic_name, data=msg.encode('utf-8'))
     logging.info("Published Message: " + str(msg))
+    logging.info("Published MessageID: " + resp.result())
     logging.info("End PubSub Publish")
 
 if args.mode=='sign':
@@ -103,10 +105,10 @@ if args.mode=='sign':
     logging.info("End signature")
 
     logging.info("Start PubSub Publish")
-    publisher.publish(topic_name, data=json.dumps(cleartext_message).encode('utf-8'), signature=msg_hash)
+    resp=publisher.publish(topic_name, data=json.dumps(cleartext_message).encode('utf-8'), signature=msg_hash)
     logging.info("Published Message: " + json.dumps(cleartext_message))
     logging.info("  with hmac: " + str(msg_hash))
-
+    logging.info("Published MessageID: " + resp.result())
     logging.info("End PubSub Publish")
 
 logging.info(">>>>>>>>>>> END <<<<<<<<<<<")

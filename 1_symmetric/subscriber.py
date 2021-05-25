@@ -41,7 +41,7 @@ logging.basicConfig(level=logging.INFO,
 
 parser = argparse.ArgumentParser(description='Subscribe encrypted or signed message')
 parser.add_argument('--mode',required=True, choices=['decrypt','verify'], help='mode must be decrypt or verify')
-parser.add_argument('--service_account',required=True,help='subscriber service_acount credentials file')
+parser.add_argument('--service_account',required=False,help='subscriber service_account credentials file')
 parser.add_argument('--project_id',required=True, help='subscription projectID')
 parser.add_argument('--pubsub_subscription',required=True, help='pubsub_subscription to pull from')
 parser.add_argument('--key',required=True, help='key')
@@ -51,7 +51,8 @@ logging.info(">>>>>>>>>>> Start <<<<<<<<<<<")
 
 scope='https://www.googleapis.com/auth/pubsub'
 
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
+if args.service_account != None:
+  os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
 
 credentials = GoogleCredentials.get_application_default()
 if credentials.create_scoped_required():

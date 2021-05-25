@@ -32,7 +32,7 @@ import base64, binascii
 import httplib2
 
 parser = argparse.ArgumentParser(description='Publish encrypted message with KMS only')
-parser.add_argument('--service_account',required=True,help='publisher service_acount credentials file')
+parser.add_argument('--service_account',required=False,help='publisher service_account credentials file')
 parser.add_argument('--project_id',required=True, help='publisher service_acount credentials file')
 parser.add_argument('--pubsub_topic',required=True, help='pubsub_topic to publish message')
 parser.add_argument('--kms_location_id',required=True, help='KMS kms_location_id (eg, us-central1)')
@@ -42,12 +42,14 @@ parser.add_argument('--tenantID',required=False, default="tenantKey", help='Opti
 
 args = parser.parse_args()
 
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
 
 scope='https://www.googleapis.com/auth/cloudkms https://www.googleapis.com/auth/pubsub'
 
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
+if args.service_account != None:
+  os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
+
 
 project_id = args.project_id
 os.environ['GOOGLE_CLOUD_PROJECT'] = project_id
@@ -84,7 +86,8 @@ topic_name = 'projects/{project_id}/topics/{topic}'.format(
     project_id=os.getenv('GOOGLE_CLOUD_PROJECT'),
     topic=PUBSUB_TOPIC,
 )
-publisher.publish(topic_name, data=base64.b64encode(data_encrypted.ciphertext), kms_key=name)
+resp=publisher.publish(topic_name, data=base64.b64encode(data_encrypted.ciphertext), kms_key=name)
 logging.info("Published Message: " + base64.b64encode(data_encrypted.ciphertext).decode())
+logging.info("Published MessageID: " + resp.result())
 logging.info("End PubSub Publish")
 logging.info(">>>>>>>>>>> END <<<<<<<<<<<")

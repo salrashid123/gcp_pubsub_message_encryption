@@ -36,18 +36,20 @@ import binascii
 
 parser = argparse.ArgumentParser(description='Subscribe and verify Service Account based messages')
 parser.add_argument('--mode',required=True, choices=['decrypt','verify'], help='mode must be decrypt or verify')
-parser.add_argument('--service_account',required=True,help='publisher service_acount credentials file')
+parser.add_argument('--service_account',required=False,help='publisher service_account credentials file for ADC')
+parser.add_argument('--cert_service_account',required=True,help='publisher service_account file to encrypt/verify')
 parser.add_argument('--project_id',required=True, help='subscriber projectID')
 parser.add_argument('--pubsub_topic',required=True, help='pubsub_topic to publish message')
 parser.add_argument('--pubsub_subscription',required=True, help='pubsub_subscription to pull message')
 args = parser.parse_args()
 
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
 
 scope='https://www.googleapis.com/auth/cloudkms https://www.googleapis.com/auth/pubsub'
 
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
+if args.service_account != None:
+  os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
 
 credentials = GoogleCredentials.get_application_default()
 if credentials.create_scoped_required():
@@ -110,13 +112,13 @@ def callback(message):
     logging.info("Attempting to decrypt message: " + str(message.data))
     logging.info("  Using service_account/key_id: " + msg_service_account + " " + key_id )
 
-    credentials = Credentials.from_service_account_file(args.service_account)
+    credentials = Credentials.from_service_account_file(args.cert_service_account)
     key_key_id = credentials._signer._key_id
 
     key_service_account_email = credentials.service_account_email
     if (msg_service_account != key_service_account_email):
         logging.info("Service Account specified in command line does not match message payload service account")
-        logging.info(msg_service_account + " --- " + args.service_account)
+        logging.info(msg_service_account + " --- " + args.cert_service_account)
         message.nack()
     else:
       private_key = credentials._signer._key

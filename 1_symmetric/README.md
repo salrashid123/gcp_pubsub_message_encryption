@@ -112,38 +112,53 @@ cleartext_message = {
     }
 ```
 
-we will initialize a shared key, encrypt it and finally transmit the encrypted message as the ```data``` field
+we will initialize a shared key, encrypt it and finally transmit the encrypted message as the ```data``` field.   
 
 Once the subscriber get this message, we will reverse it by extracting the message data and then decrypting it with our shared key:
+
+You can initialize a new HMAC or AES key by running the `util.py` command with
+
+```python
+cc = AESCipher(encoded_key=None)
+k = cc.getKey()
+cc.printKeyInfo()
+print(k)
+
+h = HMACFunctions(encoded_key=None)
+k = h.getKey()
+h.printKeyInfo()
+print(k)
+```
 
 #### output
 
 - Publisher
 ```
-$ python publisher.py  --mode encrypt --service_account '../svc-publisher.json' --project_id esp-demo-197318 --pubsub_topic my-new-topic   --key CNSKwpcCEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIGLSL2lQeHvR5byaWT7geg8/utkX0NAvbE4b+dPx53hoGAEQARjUisKXAiAB
+$ python subscriber.py  --mode decrypt --project_id  mineral-minutia-820 --pubsub_subscription my-new-subscriber \
+    --key CNTdsdcDEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIAf5r2mLlMM8FrY3QqJooMn5mK8BFpEVWR07es7neXECGAEQARjU3bHXAyAB
 
-2018-06-03 07:12:23,428 INFO >>>>>>>>>>> Start <<<<<<<<<<<
-2018-06-03 07:12:23,429 INFO Starting AES encryption
-2018-06-03 07:12:23,429 INFO End AES encryption
-2018-06-03 07:12:23,429 INFO Start PubSub Publish
-2018-06-03 07:12:23,429 INFO Published Message: b4kt+rAEvuWHpXHEiuzU4omPA4Wam+7aizmhCZAFHnHjQdaTC1KkXd+565sAgq4dSg7qUA13VsBPDsSOW/ujK4A9IwbihMdkB2WqLCgWr8YoNc/J6TL0qo98OnTHHpfrzVQ6h75d/l0cyK2cSjnDiw==
-2018-06-03 07:12:23,429 INFO End PubSub Publish
-2018-06-03 07:12:23,429 INFO >>>>>>>>>>> END <<<<<<<<<<<
+2021-05-25 06:48:58,489 INFO >>>>>>>>>>> Start <<<<<<<<<<<
+2021-05-25 06:48:58,489 INFO Starting AES encryption
+2021-05-25 06:48:58,490 INFO End AES encryption
+2021-05-25 06:48:58,490 INFO Start PubSub Publish
+2021-05-25 06:48:58,491 INFO Published Message: ATrsbtSFj5ipJL4clsuSZjW0tj3L1jNKPnDQmBK4sBjv02R4T8LWdzt5Crw7Qrh5RxKJgv7If9JCLM8dA4kKJZJYEzkX6CvZ1wYJ6KGDigsRWkTYA0G3IB/+35zsnJjhwhzuyDmQ5FXEKUd1SvdwnfKVufs5Jth8lPvpeOOb
+2021-05-25 06:48:58,843 INFO Published Message: 2472720406184438
+2021-05-25 06:48:58,843 INFO End PubSub Publish
+2021-05-25 06:48:58,843 INFO >>>>>>>>>>> END <<<<<<<<<<<
 ```
 
 - Subscriber:
 ```
-$ $ python subscriber.py  --mode decrypt --service_account '../svc-subscriber.json' --project_id esp-demo-197318 --pubsub_subscription my-new-subscriber --key CNSKwpcCEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIGLSL2lQeHvR5byaWT7geg8/utkX0NAvbE4b+dPx53hoGAEQARjUisKXAiAB
+$  python subscriber.py  --mode decrypt --project_id mineral-minutia-820 --pubsub_subscription my-new-subscriber \
+   --key CNTdsdcDEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIAf5r2mLlMM8FrY3QqJooMn5mK8BFpEVWR07es7neXECGAEQARjU3bHXAyAB
 
-2018-06-03 07:12:20,815 INFO >>>>>>>>>>> Start <<<<<<<<<<<
-2018-06-03 07:12:20,840 INFO Listening for messages on projects/esp-demo-197318/subscriptions/my-new-subscriber
-2018-06-03 07:12:24,540 INFO ********** Start PubsubMessage
-2018-06-03 07:12:24,540 INFO Received message ID: 109100106575710
-2018-06-03 07:12:24,541 INFO Received message publish_time: seconds: 1528035143 nanos: 920000000
-2018-06-03 07:12:24,541 INFO Decrypted data {"attributes": {"a": "aaa", "c": "ccc", "b": "bbb", "epoch_time": 1528035143}, "data": "foo"}
-2018-06-03 07:12:24,541 INFO ACK message
-2018-06-03 07:12:24,542 INFO End AES decryption
-2018-06-03 07:12:24,542 INFO ********** End PubsubMessage
+2021-05-25 06:49:00,061 INFO ********** Start PubsubMessage 
+2021-05-25 06:49:00,062 INFO Received message ID: 2472720406184438
+2021-05-25 06:49:00,063 INFO Received message publish_time: 2021-05-25 10:48:58.865000+00:00
+2021-05-25 06:49:00,065 INFO Decrypted data {"data": "foo", "attributes": {"epoch_time": 1621939738, "a": "aaa", "c": "ccc", "b": "bbb"}}
+2021-05-25 06:49:00,066 INFO ACK message
+2021-05-25 06:49:00,066 INFO End AES decryption
+2021-05-25 06:49:00,067 INFO ********** End PubsubMessage
 ```
 
 > The code all this can be found in the Appendix
@@ -170,31 +185,36 @@ Here is a sample run:
 - Publisher
 
 ```
-$ python publisher.py  --mode sign --service_account '../svc-publisher.json' --project_id esp-demo-197318 --pubsub_topic my-new-topic  --key CIGb0YEDEmgKXAoudHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuSG1hY0tleRIoEgQIAxAgGiA5i4pYWl+k03OWG1qPAKbYYMgNSBA/1tgLkMU4ZBdODxgBEAEYgZvRgQMgAQ==
-2018-06-03 07:13:55,022 INFO >>>>>>>>>>> Start <<<<<<<<<<<
-2018-06-03 07:13:55,022 INFO Starting hmac
-2018-06-03 07:13:55,099 INFO End hmac
-2018-06-03 07:13:55,099 INFO Start PubSub Publish
-2018-06-03 07:13:55,099 INFO Published Message: {"attributes": {"a": "aaa", "c": "ccc", "b": "bbb", "epoch_time": 1528035235}, "data": "foo"}
-2018-06-03 07:13:55,099 INFO   with hmac: uaQmDxBM/B+ud0Tp19Z49G2nBdXdWjukFLapTKbuMMc=
-2018-06-03 07:13:55,099 INFO End PubSub Publish
-2018-06-03 07:13:55,099 INFO >>>>>>>>>>> END <<<<<<<<<<<
+$ $ python publisher.py  --mode sign  --project_id mineral-minutia-820 --pubsub_topic my-new-topic \
+    --key CKWPmvcHEmgKXAoudHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuSG1hY0tleRIoEgQIAxAgGiD2EEISnDEm0nrcySPD9mNiiMxf6vlsj5gH+KjXp+BmABgBEAEYpY+a9wcgAQ==
+
+2021-05-25 06:55:45,883 INFO >>>>>>>>>>> Start <<<<<<<<<<<
+2021-05-25 06:55:45,883 INFO Starting signature
+2021-05-25 06:55:45,883 INFO End signature
+2021-05-25 06:55:45,884 INFO Start PubSub Publish
+2021-05-25 06:55:45,884 INFO Published Message: {"data": "foo", "attributes": {"epoch_time": 1621940145, "a": "aaa", "c": "ccc", "b": "bbb"}}
+2021-05-25 06:55:45,884 INFO   with hmac: b'AX7mh6X2SfZvqvom5/iq0xe8WCKIiULdnylc3KWhuex64A5dpA=='
+2021-05-25 06:55:46,283 INFO Published MessageID: 2472721840282059
+2021-05-25 06:55:46,284 INFO End PubSub Publish
+2021-05-25 06:55:46,284 INFO >>>>>>>>>>> END <<<<<<<<<<<
 ```
 
 - Subscriber
 
 ```
-$ python subscriber.py  --mode verify --service_account '../svc-subscriber.json' --project_id esp-demo-197318 --pubsub_subscription my-new-subscriber --key CIGb0YEDEmgKXAoudHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuSG1hY0tleRIoEgQIAxAgGiA5i4pYWl+k03OWG1qPAKbYYMgNSBA/1tgLkMU4ZBdODxgBEAEYgZvRgQMgAQ==
-2018-06-03 07:13:52,160 INFO >>>>>>>>>>> Start <<<<<<<<<<<
-2018-06-03 07:13:52,187 INFO Listening for messages on projects/esp-demo-197318/subscriptions/my-new-subscriber
-2018-06-03 07:13:55,937 INFO ********** Start PubsubMessage
-2018-06-03 07:13:55,938 INFO Received message ID: 109099665628729
-2018-06-03 07:13:55,938 INFO Received message publish_time: seconds: 1528035235 nanos: 554000000
-2018-06-03 07:13:55,938 INFO Starting HMAC
-2018-06-03 07:13:55,939 INFO Verify message: {"attributes": {"a": "aaa", "c": "ccc", "b": "bbb", "epoch_time": 1528035235}, "data": "foo"}
-2018-06-03 07:13:55,939 INFO   With HMAC: uaQmDxBM/B+ud0Tp19Z49G2nBdXdWjukFLapTKbuMMc=
-2018-06-03 07:13:56,043 INFO Message authenticity verified
-2018-06-03 07:13:56,043 INFO ********** End PubsubMessage
+$  python subscriber.py --mode verify --project_id mineral-minutia-820 --pubsub_subscription my-new-subscriber \
+  --key CKWPmvcHEmgKXAoudHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuSG1hY0tleRIoEgQIAxAgGiD2EEISnDEm0nrcySPD9mNiiMxf6vlsj5gH+KjXp+BmABgBEAEYpY+a9wcgAQ==
+
+2021-05-25 06:55:34,246 INFO >>>>>>>>>>> Start <<<<<<<<<<<
+2021-05-25 06:55:34,740 INFO Listening for messages on projects/mineral-minutia-820/subscriptions/my-new-subscriber
+2021-05-25 06:55:47,229 INFO ********** Start PubsubMessage 
+2021-05-25 06:55:47,230 INFO Received message ID: 2472721840282059
+2021-05-25 06:55:47,231 INFO Received message publish_time: 2021-05-25 10:55:46.276000+00:00
+2021-05-25 06:55:47,232 INFO Starting HMAC
+2021-05-25 06:55:47,233 INFO Verify message: b'{"data": "foo", "attributes": {"epoch_time": 1621940145, "a": "aaa", "c": "ccc", "b": "bbb"}}'
+2021-05-25 06:55:47,234 INFO   With HMAC: AX7mh6X2SfZvqvom5/iq0xe8WCKIiULdnylc3KWhuex64A5dpA==
+2021-05-25 06:55:47,234 INFO Message authenticity verified
+2021-05-25 06:55:47,234 INFO ********** End PubsubMessage
 ```
 
 ### The good and the bad
@@ -229,7 +249,7 @@ Can we improve on this?  Lets see if using the [Service Account](https://cloud.g
 
 ## PubSub Service Account Configuration
 
-The following describes the service account permissions needed to access the Topic and Subscription as a service account
+The following describes the service account permissions needed to access the Topic and Subscription as a service account.   In the examples above, I used application-default credentials
 
 
 - Project:  ```esp-demo-197318```

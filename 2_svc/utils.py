@@ -47,6 +47,7 @@ from tink import tink_config
 from tink import mac
 from tink.proto import tink_pb2
 from tink.proto import common_pb2
+from tink.integration import gcpkms
 from tink import core
 
 from tink import cleartext_keyset_handle
@@ -78,25 +79,39 @@ mac.register()
 
 class AESCipher(object):
 
-    def __init__(self, encoded_key):
+    def __init__(self, encoded_key, key_uri=None):
+      self.gcp_aead = None
+      if key_uri != None:
+        gcp_client = gcpkms.GcpKmsClient(key_uri=key_uri,credentials_path="")
+        self.gcp_aead = gcp_client.get_aead(key_uri)
+        if (encoded_key==None):
+          self.keyset_handle = tink.new_keyset_handle(aead.aead_key_templates.AES256_GCM)
+        else:
+          reader = tink.BinaryKeysetReader(base64.b64decode(encoded_key))          
+          self.keyset_handle = tink.KeysetHandle.read(reader, self.gcp_aead)
+      else:
+        if (encoded_key==None):
+          self.keyset_handle = tink.new_keyset_handle(aead.aead_key_templates.AES256_GCM)
+        else:
+          reader = tink.BinaryKeysetReader(base64.b64decode(encoded_key))
+          self.keyset_handle = cleartext_keyset_handle.read(reader)        
+
       tink_config.register()
       aead.register()
 
-      if (encoded_key==None):
-        self.keyset_handle = tink.new_keyset_handle(aead.aead_key_templates.AES256_GCM)
-      else:
-        reader = tink.BinaryKeysetReader(base64.b64decode(encoded_key))
-        self.keyset_handle = cleartext_keyset_handle.read(reader)
       self.key=self.keyset_handle.keyset_info()
       self.aead_primitive = self.keyset_handle.primitive(aead.Aead)
 
-    def printKey(self):
+    def printKeyInfo(self):
       print(self.keyset_handle.keyset_info())
 
     def getKey(self):
       iostream = io.BytesIO()
-      writer = tink.BinaryKeysetWriter(iostream)
-      writer.write(self.keyset_handle._keyset)
+      writer = tink.BinaryKeysetWriter(iostream)      
+      if self.gcp_aead != None:
+        self.keyset_handle.write(writer,self.gcp_aead)
+      else:
+        writer.write(self.keyset_handle._keyset)
       encoded_key = base64.b64encode(iostream.getvalue()).decode('utf-8')
       return base64.b64encode(iostream.getvalue()).decode('utf-8')
       
@@ -112,21 +127,36 @@ class AESCipher(object):
 
 class HMACFunctions(object):
 
-    def __init__(self, encoded_key=None):
-      if encoded_key == None:
-        self.keyset_handle = tink.new_keyset_handle(mac.mac_key_templates.HMAC_SHA256_256BITTAG)
+    def __init__(self, encoded_key, key_uri=None):
+      self.gcp_aead = None
+      if key_uri != None:
+        gcp_client = gcpkms.GcpKmsClient(key_uri=key_uri,credentials_path="")
+        self.gcp_aead = gcp_client.get_aead(key_uri)
+        if (encoded_key==None):
+          self.keyset_handle = tink.new_keyset_handle(mac.mac_key_templates.HMAC_SHA256_256BITTAG)
+        else:
+          reader = tink.BinaryKeysetReader(base64.b64decode(encoded_key))          
+          self.keyset_handle = tink.KeysetHandle.read(reader, self.gcp_aead)
       else:
-        reader = tink.BinaryKeysetReader(base64.b64decode(encoded_key))
-        self.keyset_handle = cleartext_keyset_handle.read(reader)
+        if (encoded_key==None):
+          self.keyset_handle = tink.new_keyset_handle(mac.mac_key_templates.HMAC_SHA256_256BITTAG)
+        else:
+          reader = tink.BinaryKeysetReader(base64.b64decode(encoded_key))
+          self.keyset_handle = cleartext_keyset_handle.read(reader)        
       self.mac = self.keyset_handle.primitive(mac.Mac)
 
-    def printKey(self):
+
+
+    def printKeyInfo(self):
       print(self.keyset_handle.keyset_info())
 
     def getKey(self):
       iostream = io.BytesIO()
-      writer = tink.BinaryKeysetWriter(iostream)
-      writer.write(self.keyset_handle._keyset)
+      writer = tink.BinaryKeysetWriter(iostream)      
+      if self.gcp_aead != None:
+        self.keyset_handle.write(writer,self.gcp_aead)
+      else:
+        writer.write(self.keyset_handle._keyset)
       encoded_key = base64.b64encode(iostream.getvalue()).decode('utf-8')
       return base64.b64encode(iostream.getvalue()).decode('utf-8')
 
@@ -140,4 +170,3 @@ class HMACFunctions(object):
         return True
       except tink.TinkError as e:
         return False
- 

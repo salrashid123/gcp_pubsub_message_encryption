@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO,
 
 parser = argparse.ArgumentParser(description='Publish encrypted message with KMS only')
 parser.add_argument('--mode',required=True, choices=['decrypt','verify'], help='mode must be decrypt or verify')
-parser.add_argument('--service_account',required=True,help='publisher service_acount credentials file')
+parser.add_argument('--service_account',required=False,help='publisher service_acount credentials file')
 parser.add_argument('--pubsub_project_id',required=True, help='subscriber PubSub project')
 parser.add_argument('--pubsub_topic',required=True, help='pubsub_topic to publish message')
 parser.add_argument('--pubsub_subscription',required=True, help='pubsub_subscription to pull message')
@@ -35,8 +35,8 @@ args = parser.parse_args()
 
 scope='https://www.googleapis.com/auth/cloudkms https://www.googleapis.com/auth/pubsub'
 
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
-
+if args.service_account != None:
+  os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_accoun
 
 pubsub_project_id = args.pubsub_project_id
 kms_project_id = args.kms_project_id
@@ -80,26 +80,20 @@ def callback(message):
 
       try:
          unwrapped_key = cache[sign_key_wrapped]
+         logging.info("Using Cached DEK")
       except KeyError:
-        logging.info("Starting KMS decryption API call")
-
-        name = message.attributes['kms_key']
-        unwrapped_key_struct = kms_client.decrypt(name=name, 
-                  ciphertext=base64.b64decode(message.attributes['sign_key_wrapped']),
-                  additional_authenticated_data=tenantID.encode('utf-8'))
-                  
-        unwrapped_key = unwrapped_key_struct.plaintext
+        logging.info(">>>>>>>>>>>>>>>>   Starting KMS decryption API call")
+        keyURI="gcp-kms://" + name
+        unwrapped_key = HMACFunctions(encoded_key=sign_key_wrapped,key_uri=keyURI)
+        cache[sign_key_wrapped] = unwrapped_key
 
         logging.info("End KMS decryption API call")
         logging.debug("Verify message: " + message.data.decode('utf-8'))
         logging.debug('  With HMAC: ' + signature)
-        logging.debug('  With unwrapped key: ' + base64.b64encode(unwrapped_key).decode('utf-8'))      
-        cache[sign_key_wrapped] = unwrapped_key
+   
+      sig = unwrapped_key.hash(message.data)
 
-      hh = HMACFunctions(unwrapped_key)
-      sig = hh.hash(message.data)
-
-      if (hh.verify(message.data,base64.b64decode(sig))):
+      if (unwrapped_key.verify(message.data,base64.b64decode(sig))):
         logging.info("Message authenticity verified")
         message.ack()
       else:
@@ -119,24 +113,19 @@ def callback(message):
 
       try:
          dek = cache[dek_wrapped]
+         logging.info("Using Cached DEK")
       except KeyError:
-        logging.info("Starting KMS decryption API call")
+        logging.info(">>>>>>>>>>>>>>>>   Starting KMS decryption API call")
 
         name = message.attributes['kms_key']
-        unwrapped_key_struct = kms_client.decrypt(name=name, 
-                  ciphertext=base64.b64decode(dek_wrapped),
-                  additional_authenticated_data=tenantID.encode('utf-8'))
-                  
-        dek = unwrapped_key_struct.plaintext
 
-        logging.info("End KMS decryption API call")
-        logging.info('Received aes_encryption_key : {}'.format( base64.b64encode(dek).decode('utf-8')))
-        
+        keyURI="gcp-kms://" + name
+        dek = AESCipher(encoded_key=dek_wrapped,key_uri=keyURI)
         cache[dek_wrapped] = dek
 
       logging.debug("Starting AES decryption")
-      ac = AESCipher(dek)
-      decrypted_data = ac.decrypt(message.data,associated_data="")
+
+      decrypted_data = dek.decrypt(message.data,associated_data=tenantID)
       logging.debug("End AES decryption")
       logging.info('Decrypted data ' + decrypted_data)
       message.ack()

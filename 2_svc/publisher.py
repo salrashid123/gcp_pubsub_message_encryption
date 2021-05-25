@@ -40,7 +40,8 @@ import utils
 from utils import AESCipher, HMACFunctions, RSACipher
 
 parser = argparse.ArgumentParser(description='Publish encrypted message with KMS only')
-parser.add_argument('--service_account',required=True,help='publisher service_acount credentials file')
+parser.add_argument('--service_account',required=False,help='publisher service_account credentials file')
+parser.add_argument('--cert_service_account',required=True,help='publisher service_account file to encrypt/verify')
 parser.add_argument('--mode',required=True, choices=['encrypt','sign'], help='mode must be encrypt or sign')
 parser.add_argument('--recipient',required=False, help='Service Account to encrypt for')
 parser.add_argument('--recipient_key_id',required=False, help='Service Account key_id to use')
@@ -54,7 +55,8 @@ logging.basicConfig(level=logging.DEBUG,
 
 scope='https://www.googleapis.com/auth/iam https://www.googleapis.com/auth/pubsub'
 
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
+if args.service_account != None:
+  os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
 
 credentials = GoogleCredentials.get_application_default()
 if credentials.create_scoped_required():
@@ -80,7 +82,7 @@ cleartext_message = {
 if args.mode =="sign":
   logging.info(">>>>>>>>>>> Start Sign with Service Account json KEY <<<<<<<<<<<")
 
-  credentials = service_account.Credentials.from_service_account_file(args.service_account)
+  credentials = service_account.Credentials.from_service_account_file(args.cert_service_account)
   data_signed = credentials.sign_bytes(json.dumps(cleartext_message))
   logging.info("Signature: "  + base64.b64encode(data_signed).decode('utf-8'))
   key_id = credentials._signer._key_id
@@ -98,8 +100,9 @@ if args.mode =="sign":
     topic=PUBSUB_TOPIC,
   )
 
-  publisher.publish(topic_name, data=json.dumps(cleartext_message).encode('utf-8'), key_id=key_id, service_account=service_account, signature=base64.b64encode(data_signed))
+  resp=publisher.publish(topic_name, data=json.dumps(cleartext_message).encode('utf-8'), key_id=key_id, service_account=service_account, signature=base64.b64encode(data_signed))
   logging.info("Published Message: " + str(cleartext_message))
+  logging.info("Published MessageID: " + resp.result())
   logging.info("End PubSub Publish")
   logging.info(">>>>>>>>>>> END <<<<<<<<<<<")
 
@@ -128,7 +131,8 @@ if args.mode =="encrypt":
     topic=PUBSUB_TOPIC,
   )
 
-  publisher.publish(topic_name, data=json.dumps(encrypted_payload).encode('utf-8'), service_account=args.recipient, key_id=args.recipient_key_id)
+  resp=publisher.publish(topic_name, data=json.dumps(encrypted_payload).encode('utf-8'), service_account=args.recipient, key_id=args.recipient_key_id)
   logging.info("Published Message: " + str(encrypted_payload))
+  logging.info("Published MessageID: " + resp.result())
   logging.info("End PubSub Publish")
   logging.info(">>>>>>>>>>> END <<<<<<<<<<<")
