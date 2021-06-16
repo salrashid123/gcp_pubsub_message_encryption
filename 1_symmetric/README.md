@@ -96,6 +96,15 @@ So..Whats the easiest way to sign or encrypt a message?  Symmetric key, right? o
 
 We're going to setup and and distribute a symmetric key between Alice and Bob where each will keep that key available to the service pushing and pulling messages.  Basically, its a shared secret where the actual distribution of the key happened out of bad earlier.
 
+Setup Pubsub Topics/Subscribers
+
+```bash
+export PROJECT_ID=`gcloud config get-value core/project`
+export PROJECT_NUMBER=`gcloud projects describe $PROJECT_ID --format='value(projectNumber)'`
+
+gcloud pubsub topics create my-new-topic
+gcloud pubsub subscriptions create my-new-subscriber --topic=my-new-topic
+```
 
 ### Encryption
 
@@ -134,8 +143,8 @@ print(k)
 
 - Publisher
 ```
-$ python subscriber.py  --mode decrypt --project_id  mineral-minutia-820 --pubsub_subscription my-new-subscriber \
-    --key CNTdsdcDEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIAf5r2mLlMM8FrY3QqJooMn5mK8BFpEVWR07es7neXECGAEQARjU3bHXAyAB
+$ python publisher.py  --mode encrypt --project_id  $PROJECT_ID --pubsub_topic my-new-topic \
+      --key CNTdsdcDEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIAf5r2mLlMM8FrY3QqJooMn5mK8BFpEVWR07es7neXECGAEQARjU3bHXAyAB
 
 2021-05-25 06:48:58,489 INFO >>>>>>>>>>> Start <<<<<<<<<<<
 2021-05-25 06:48:58,489 INFO Starting AES encryption
@@ -149,7 +158,7 @@ $ python subscriber.py  --mode decrypt --project_id  mineral-minutia-820 --pubsu
 
 - Subscriber:
 ```
-$  python subscriber.py  --mode decrypt --project_id mineral-minutia-820 --pubsub_subscription my-new-subscriber \
+$  python subscriber.py  --mode decrypt --project_id $PROJECT_ID --pubsub_subscription my-new-subscriber \
    --key CNTdsdcDEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIAf5r2mLlMM8FrY3QqJooMn5mK8BFpEVWR07es7neXECGAEQARjU3bHXAyAB
 
 2021-05-25 06:49:00,061 INFO ********** Start PubsubMessage 
@@ -185,7 +194,7 @@ Here is a sample run:
 - Publisher
 
 ```
-$ $ python publisher.py  --mode sign  --project_id mineral-minutia-820 --pubsub_topic my-new-topic \
+$ python publisher.py  --mode sign  --project_id $PROJECT_ID --pubsub_topic my-new-topic \
     --key CKWPmvcHEmgKXAoudHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuSG1hY0tleRIoEgQIAxAgGiD2EEISnDEm0nrcySPD9mNiiMxf6vlsj5gH+KjXp+BmABgBEAEYpY+a9wcgAQ==
 
 2021-05-25 06:55:45,883 INFO >>>>>>>>>>> Start <<<<<<<<<<<
@@ -202,7 +211,7 @@ $ $ python publisher.py  --mode sign  --project_id mineral-minutia-820 --pubsub_
 - Subscriber
 
 ```
-$  python subscriber.py --mode verify --project_id mineral-minutia-820 --pubsub_subscription my-new-subscriber \
+$  python subscriber.py --mode verify --project_id $PROJECT_ID --pubsub_subscription my-new-subscriber \
   --key CKWPmvcHEmgKXAoudHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuSG1hY0tleRIoEgQIAxAgGiD2EEISnDEm0nrcySPD9mNiiMxf6vlsj5gH+KjXp+BmABgBEAEYpY+a9wcgAQ==
 
 2021-05-25 06:55:34,246 INFO >>>>>>>>>>> Start <<<<<<<<<<<

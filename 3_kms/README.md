@@ -42,7 +42,9 @@ attributes:
 
 ## Signing messages
 
-At the time of writing (6/3/18), GCP KMS supports [.encryt()](https://cloud.google.com/kms/docs/encrypt-decrypt#encrypt)  and [.decrypt()](https://cloud.google.com/kms/docs/encrypt-decrypt#decrypt) operations.  Its not possible to sign a message in the same sense as the other cases so I'll be skipping this
+At the time of writing (6/3/18), GCP KMS supports [.encrypt()](https://cloud.google.com/kms/docs/encrypt-decrypt#encrypt)  and [.decrypt()](https://cloud.google.com/kms/docs/encrypt-decrypt#decrypt) operations.  Its not possible to sign a message in the same sense as the other cases so I'll be skipping this
+
+Update `6/16/21`, yes, KMS does support asymmetric operations but i'm going to skip this anyway...
 
 ## Encryption
 
@@ -54,35 +56,55 @@ Ok, so how does this work?  Its pretty straight forward:
 Easy enough, right?  Yes its too easy but has some severe practical limitations for high-volume, high-frequency PubSub messages
 
 
+## Setup
+
+
+```bash
+export PROJECT_ID=`gcloud config get-value core/project`
+export PROJECT_NUMBER=`gcloud projects describe $PROJECT_ID --format='value(projectNumber)'`
+
+gcloud pubsub topics create my-new-topic
+gcloud pubsub subscriptions create my-new-subscriber --topic=my-new-topic
+
+gcloud iam service-accounts create publisher
+gcloud iam service-accounts create subscriber
+
+gcloud kms keyrings create mykeyring  --location=us-central1
+gcloud kms keys create key1 --keyring=mykeyring --purpose=encryption --location=us-central1
+```
+
+
+
 #### Output
 
 - Publisher
 ```log
-$ python publisher.py   --project_id mineral-minutia-820 --pubsub_topic my-new-topic  --kms_location_id us-central1 --kms_key_ring_id mykeyring --kms_crypto_key_id key1
+$ python publisher.py   --project_id $PROJECT_ID --pubsub_topic my-new-topic  --kms_location_id us-central1 --kms_key_ring_id mykeyring --kms_crypto_key_id key1
 
-2021-05-25 07:44:42,039 INFO >>>>>>>>>>> Start <<<<<<<<<<<
-2021-05-25 07:44:42,456 INFO End KMS encryption API call
-2021-05-25 07:44:42,456 INFO Start PubSub Publish
-2021-05-25 07:44:42,960 INFO Published Message: CiUAmT+VVdb5NBYXakpiJoqtzwit3teHpAB26kuFCd/SARo1k134EoYBACsKZVIClk3OhBLgHVL29nK36E+J3o670+lDUSKYq99VjEAMZpvjFC23P2M3+6sQmLtDH4zJS/mrMSvXRUsP83CiiqQc5ATNZBj8minAA6IefauJfgjRVSahwZaDjazFPlT7blPs4AGTbnQOk3IAp8BmA4IUMH1wyTPTs+BIerTzo7V7LqM=
-2021-05-25 07:44:43,355 INFO Published MessageID: 2472904674938088
-2021-05-25 07:44:43,355 INFO End PubSub Publish
-2021-05-25 07:44:43,355 INFO >>>>>>>>>>> END <<<<<<<<<<<
+2021-06-16 09:27:49,617 INFO >>>>>>>>>>> Start <<<<<<<<<<<
+2021-06-16 09:27:49,993 INFO End KMS encryption API call
+2021-06-16 09:27:49,993 INFO Start PubSub Publish
+2021-06-16 09:27:50,565 INFO Published Message: CiQArw4RIGraA1oEWkbz8tRxJK6/7gkKKb9xhbAwMPvqGyXn5csShgEACLNrXzyCWJTlJsv4nPneVUPka1fCO2gVfw3FMovhjlqFdzwezt6inF4AHD4z9we+iwfwdoZfI+NvCimgfCA3Hlu2d5wmRlBQ8mjBDO9iKRrh+I4LZ5/6Hb/54yKJS8sqv7mcb3Lxb6/uXfMTfFNws9OrRqb5MsHPMfqzFgVYJl8uBIh/Zw==
+2021-06-16 09:27:50,767 INFO Published MessageID: 2543476220017669
+2021-06-16 09:27:50,768 INFO End PubSub Publish
+2021-06-16 09:27:50,768 INFO >>>>>>>>>>> END <<<<<<<<<<<
 ```
 
 - Subscriber
 ```log
-$ python subscriber.py  --project_id mineral-minutia-820 --pubsub_topic my-new-topic  --pubsub_subscription my-new-subscriber --kms_location_id us-central1 --kms_key_ring_id mykeyring --kms_crypto_key_id key1
+$ python subscriber.py  --project_id $PROJECT_ID --pubsub_topic my-new-topic  --pubsub_subscription my-new-subscriber \
+    --kms_location_id us-central1 --kms_key_ring_id mykeyring --kms_crypto_key_id key1
 
-2021-05-25 07:44:18,938 INFO Listening for messages on projects/mineral-minutia-820/subscriptions/my-new-subscriber
-2021-05-25 07:44:44,357 INFO ********** Start PubsubMessage 
-2021-05-25 07:44:44,357 INFO Received message ID: 2472904674938088
-2021-05-25 07:44:44,358 INFO Received message publish_time: 2021-05-25 11:44:43.334000+00:00
-2021-05-25 07:44:44,358 INFO Received message attributes["kms_key"]: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
-2021-05-25 07:44:44,358 INFO Starting KMS decryption API call
-2021-05-25 07:44:44,788 INFO End KMS decryption API call
-2021-05-25 07:44:44,788 INFO Decrypted data {"data": "foo", "attributes": {"epoch_time": 1621943082, "a": "aaa", "c": "ccc", "b": "bbb"}}
-2021-05-25 07:44:44,788 INFO ACK message
-2021-05-25 07:44:44,790 INFO ********** End PubsubMessage
+2021-06-16 09:27:44,732 INFO Listening for messages on projects/pubsub-msg/subscriptions/my-new-subscriber
+2021-06-16 09:27:50,803 INFO ********** Start PubsubMessage 
+2021-06-16 09:27:50,804 INFO Received message ID: 2543476220017669
+2021-06-16 09:27:50,804 INFO Received message publish_time: 2021-06-16 13:27:50.762000+00:00
+2021-06-16 09:27:50,804 INFO Received message attributes["kms_key"]: projects/pubsub-msg/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-06-16 09:27:50,804 INFO Starting KMS decryption API call
+2021-06-16 09:27:51,120 INFO End KMS decryption API call
+2021-06-16 09:27:51,120 INFO Decrypted data {"data": "foo", "attributes": {"epoch_time": 1623850069, "a": "aaa", "c": "ccc", "b": "bbb"}}
+2021-06-16 09:27:51,120 INFO ACK message
+2021-06-16 09:27:51,122 INFO ********** End PubsubMessage 
 ```
 
 ## Execution Latency

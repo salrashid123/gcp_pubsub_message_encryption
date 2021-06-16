@@ -36,7 +36,7 @@ args = parser.parse_args()
 scope='https://www.googleapis.com/auth/cloudkms https://www.googleapis.com/auth/pubsub'
 
 if args.service_account != None:
-  os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_accoun
+  os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = args.service_account
 
 pubsub_project_id = args.pubsub_project_id
 kms_project_id = args.kms_project_id

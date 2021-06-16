@@ -76,7 +76,9 @@ cleartext_message = {
     }
 }
 
-data_encrypted = kms_client.encrypt(name=name, plaintext=json.dumps(cleartext_message).encode('utf-8'),additional_authenticated_data=tenantID.encode('utf-8'))
+
+encrypt_response = kms_client.encrypt(
+      request={'name': name, 'plaintext': json.dumps(cleartext_message).encode('utf-8'), 'additional_authenticated_data': tenantID.encode('utf-8')  })
 
 logging.info("End KMS encryption API call")
 
@@ -86,8 +88,8 @@ topic_name = 'projects/{project_id}/topics/{topic}'.format(
     project_id=os.getenv('GOOGLE_CLOUD_PROJECT'),
     topic=PUBSUB_TOPIC,
 )
-resp=publisher.publish(topic_name, data=base64.b64encode(data_encrypted.ciphertext), kms_key=name)
-logging.info("Published Message: " + base64.b64encode(data_encrypted.ciphertext).decode())
+resp=publisher.publish(topic_name, data=base64.b64encode(encrypt_response.ciphertext), kms_key=name)
+logging.info("Published Message: " + base64.b64encode(encrypt_response.ciphertext).decode())
 logging.info("Published MessageID: " + resp.result())
 logging.info("End PubSub Publish")
 logging.info(">>>>>>>>>>> END <<<<<<<<<<<")

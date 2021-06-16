@@ -17,7 +17,7 @@
 # python subscriber.py  --mode verify --service_account '../svc-subscriber.json' --project_id esp-demo-197318 --pubsub_topic my-new-topic  --pubsub_subscription my-new-subscriber
 # python subscriber.py  --mode decrypt --service_account '../svc-subscriber.json' --project_id esp-demo-197318 --pubsub_topic my-new-topic  --pubsub_subscription my-new-subscriber
 
-import os
+import os, sys
 import time
 import argparse
 from google.cloud import pubsub
@@ -37,7 +37,7 @@ import binascii
 parser = argparse.ArgumentParser(description='Subscribe and verify Service Account based messages')
 parser.add_argument('--mode',required=True, choices=['decrypt','verify'], help='mode must be decrypt or verify')
 parser.add_argument('--service_account',required=False,help='publisher service_account credentials file for ADC')
-parser.add_argument('--cert_service_account',required=True,help='publisher service_account file to encrypt/verify')
+parser.add_argument('--cert_service_account',required=False,help='publisher service_account file to decrypt')
 parser.add_argument('--project_id',required=True, help='subscriber projectID')
 parser.add_argument('--pubsub_topic',required=True, help='pubsub_topic to publish message')
 parser.add_argument('--pubsub_subscription',required=True, help='pubsub_subscription to pull message')
@@ -111,6 +111,11 @@ def callback(message):
 
     logging.info("Attempting to decrypt message: " + str(message.data))
     logging.info("  Using service_account/key_id: " + msg_service_account + " " + key_id )
+
+    if args.cert_service_account == None:
+       logging.error("********** cert_service_account must be specified to decrypt ")       
+       message.nack()
+       sys.exit()
 
     credentials = Credentials.from_service_account_file(args.cert_service_account)
     key_key_id = credentials._signer._key_id

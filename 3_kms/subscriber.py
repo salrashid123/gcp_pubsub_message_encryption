@@ -83,16 +83,10 @@ def callback(message):
 
   logging.info("Starting KMS decryption API call")
 
-  decrypted_message = kms_client.decrypt(name=name, 
-                  ciphertext=base64.b64decode(message.data),
-                  additional_authenticated_data=tenantID.encode('utf-8'))
-  # request = crypto_keys.decrypt(
-  #       name=name,
-  #       body={
-  #        'ciphertext': (message.data).decode('utf-8'),
-  #        'additionalAuthenticatedData': base64.b64encode(tenantID).decode('utf-8')
-  #       })
-  # response = request.execute()
+  decrypted_message = kms_client.decrypt(
+      request={'name': name, 'ciphertext': base64.b64decode(message.data), 'additional_authenticated_data': tenantID.encode('utf-8')  })
+
+
   dec =  base64.b64decode(decrypted_message.plaintext)
   logging.info("End KMS decryption API call")
   logging.info('Decrypted data ' + decrypted_message.plaintext.decode('utf-8'))
