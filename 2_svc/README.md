@@ -17,29 +17,29 @@ This technique relies on the publisher have a [service_account private key](http
 ```json
 {
   "type": "service_account",
-  "project_id": "mineral-minutia-820",
+  "project_id": "pubsub-msg",
   "private_key_id": "54927b54123e5b00f5e7ca6e290b3823d545eeb2",
   "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADAXgIU=\n-----END PRIVATE KEY-----\n",
-  "client_email": "publisher@mineral-minutia-820.iam.gserviceaccount.com",
+  "client_email": "publisher@pubsub-msg.iam.gserviceaccount.com",
   "client_id": "108529726503327553286",
   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
   "token_uri": "https://oauth2.googleapis.com/token",
   "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/publisher%40mineral-minutia-820.iam.gserviceaccount.com"
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/publisher%40pubsub-msg.iam.gserviceaccount.com"
 }
 ```
 
 which has the public key available at a well-known URL (```client_x509_cert_url```):
 
 - x509:
-    - [https://www.googleapis.com/service_accounts/v1/metadata/x509/publisher@mineral-minutia-820.iam.gserviceaccount.com](https://www.googleapis.com/service_accounts/v1/metadata/x509/publisher@mineral-minutia-820.iam.gserviceaccount.com)
+    - [https://www.googleapis.com/service_accounts/v1/metadata/x509/publisher@pubsub-msg.iam.gserviceaccount.com](https://www.googleapis.com/service_accounts/v1/metadata/x509/publisher@pubsub-msg.iam.gserviceaccount.com)
 - JWK
-    - [https://www.googleapis.com/service_accounts/v1/jwk/publisher@publisher@mineral-minutia-820.iam.gserviceaccount.com](https://www.googleapis.com/service_accounts/v1/jwk/publisher@mineral-minutia-820.iam.gserviceaccount.com)
+    - [https://www.googleapis.com/service_accounts/v1/jwk/publisher@publisher@pubsub-msg.iam.gserviceaccount.com](https://www.googleapis.com/service_accounts/v1/jwk/publisher@pubsub-msg.iam.gserviceaccount.com)
 
 
 Since the subscriber can download these certs to verify a message, the issue of key-distribution is a bit easier.
 
-Wait....we've got a public key on our hands now...we can use that for encryption too.   In this mode, the publisher uses the public key for the for the _subscriber__ to encrypt a message  (in our case, one of the available keys [here](https://www.googleapis.com/service_accounts/v1/metadata/x509/subscriber@mineral-minutia-820.iam.gserviceaccount.com)).  The subscriber on the other end must have in possession or have the ability to verify the message.  With this technique, you are ensuring confidentiality by encrypting the payload using public/private keys
+Wait....we've got a public key on our hands now...we can use that for encryption too.   In this mode, the publisher uses the public key for the for the _subscriber__ to encrypt a message  (in our case, one of the available keys [here](https://www.googleapis.com/service_accounts/v1/metadata/x509/subscriber@pubsub-msg.iam.gserviceaccount.com)).  The subscriber on the other end must have in possession or have the ability to verify the message (i.,e have the private key).  With this technique, you are ensuring confidentiality by encrypting the payload using public/private keys
 
 ## Using Service Account Token Creator Role
 
@@ -49,25 +49,48 @@ What we've done here is use a service account to sign the payload. GCP has anoth
 - [iam.signJwt()](https://cloud.google.com/iam/reference/rest/v1/projects.serviceAccounts/signJwt)
 - [iam.signBlob()](https://cloud.google.com/iam/reference/rest/v1/projects.serviceAccounts/signBlob)
 
+To use this mode, specify the `--impersonated_service_account` flag
 ### Encrypted message Formatter
 
-Please refer to the first article on the series for the format basics.  The variation describe in this technique has a slight extension to account for the service_account:
+There are two layers of encryption involved with this:  a data encryption key (DEK) and a Key Encryption Key (KEK).
 
-What this technique does is encrypts that entirely as the message ```data``` and _then_ add the service_account the message is intended for  (```service_account=args.recipient```) as well ask hint for the ```key_id`` used.
+The DEK is a one-time key generated using TINK which is used to encrypt the actual pubsub message.  The KEK is the subscriber service account's public key used to encrypt the DEK.
 
-the snippet in python is:
+so, its
+
+1. create an AES DEK using TINK
+2. encrypt the pubsub message using DEK
+3. use the public key for the subscriber to encrypt the DEK
+4. transmit the encrypted message and encrypted DEK to pubsub
+
+The pubsub message would be of the form
+
 ```python
-publisher.publish(topic_name, data=encrypted_payload.encode(), service_account=args.recipient, key_id=args.recipient_key_id)
+resp=publisher.publish(topic_name, data=encrypted_payload.encode('utf-8'), service_account=args.recipient, key_id=args.recipient_key_id, dek_wrapped=dek_wrapped)
 ```
+
+The subscriber will use the private key to decrypt the DEK and then use the decrypted DEK to decrypt the message.
+
+Note, the the `key_id` and `service_account` attributes trasmitted isn't really necessary here (since in this example, the subscriber only has one key).  Its possible to use
+these fields to pull only messages applicable for decryption
 
 ### Signed message Formatter
 
-Similar to the first article, we will be signing the message you users intended to send and then embedding the signature in a Pub/Sub Message attribute called ```signature=```:
+The signing does not use a DEK but uses the private key for the subscriber directly:
 
-the snippet in python is:
+If the subscriber wants to sign message `M`
+
+1. create a hash of `M`
+2. use publishers's private key to sign `M`
+3. Transmit the message hash and message
+
+The pubsub message would be in the form
+
 ```python
-  publisher.publish(topic_name, data=json.dumps(plaintext_message), key_id=key_id, service_account=service_account, signature=data_signed)
+resp=publisher.publish(topic_name, data=json.dumps(cleartext_message).encode('utf-8'), key_id=key_id, service_account=service_account, signature=base64.b64encode(data_signed))  
 ```
+
+The subscriber will use the `key_id` and `service_account` to recall the public key for the signer...then use that to verify the signature.
 
 ## Setup
 
@@ -94,13 +117,21 @@ gcloud iam service-accounts keys create subscriber.json --iam-account=subscriber
 
 Make note of the KeyIDs `b3745702cb47d267c232f609a2614ba274ddf788`, `9193775e9cae64eb62404875a20c05d44ab4c0bf`
 
+Note, you can use use impersonation for the publisher but not subscriber for signing only. This is simply because impersonated service account credentials only supports [signBlob()](https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts/signBlob)  (there is no such thing as `iamcredentials.decryptBlob()`).  Since you can only sign, only the publisher can emit a message for message signature verification
+```
+
+To enable this, allow the current user to sign
+```bash
+  gcloud iam service-accounts  add-iam-policy-binding   --role=roles/iam.serviceAccountTokenCreator \
+    --member=user:`gcloud config get-value core/account` publisher@$PROJECT_ID.iam.gserviceaccount.com  
+```
+If you use impersonation, do not specify the `--cert_service_account` parameter and instead set `--impersonated_service_account=`
+
 ## Simple message Encryption
 
 Ok, Now that we're on the same field, lets run through a sample run.  
 
 ### Encryption
-
-We're going to use the **DIFFERENT** service accounts as the publisher and subscriber already use as authorization to GCP. 
 
 #### Output
 
@@ -108,43 +139,69 @@ We're going to use the **DIFFERENT** service accounts as the publisher and subsc
 
 ```log
 $ python publisher.py  --mode encrypt --project_id $PROJECT_ID --pubsub_topic my-new-topic \
-   --recipient subscriber@$PROJECT_ID.iam.gserviceaccount.com --recipient_key_id 9193775e9cae64eb62404875a20c05d44ab4c0bf
+   --recipient subscriber@$PROJECT_ID.iam.gserviceaccount.com --recipient_key_id 3e3afe31e14b530f98b5239cffc3f7808fe983fe
 
-2021-06-16 08:55:35,110 INFO >>>>>>>>>>> Start Encrypt with Service Account Public Key Reference <<<<<<<<<<<
-2021-06-16 08:55:35,110 INFO   Using remote public key_id = 9193775e9cae64eb62404875a20c05d44ab4c0bf
-2021-06-16 08:55:35,110 INFO   For service account at: https://www.googleapis.com/service_accounts/v1/metadata/x509/subscriber@pubsub-msg.iam.gserviceaccount.com
-2021-06-16 08:55:35,113 DEBUG Starting new HTTPS connection (1): www.googleapis.com:443
-2021-06-16 08:55:35,176 DEBUG https://www.googleapis.com:443 "GET /service_accounts/v1/metadata/x509/subscriber@pubsub-msg.iam.gserviceaccount.com HTTP/1.1" 200 1699
-2021-06-16 08:55:35,181 INFO Start PubSub Publish
-2021-06-16 08:55:35,182 DEBUG Checking None for explicit credentials as part of auth process...
-2021-06-16 08:55:35,183 DEBUG Checking Cloud SDK credentials as part of auth process...
-2021-06-16 08:55:35,735 INFO Published Message: b'WSP8L7zeKm+hpHq9kT0XYID7vQfsd0MRPlvWX2uosSZGKfBPhZOSAU+tfSGh3Ro/5GaWzpGr/wY9qLWZJG1zrgthBwcr1r4Jl/VVq5ew4mmsFWqBCFT2WO8UUQdnKHSSSPCAPSsxu/QjOBeXMtTV3gIeZBA5MZMuwCXEFSU/M55sQOsAp4s0nDvYgDMFj4IbCZxusdkNqx4YXvfEcNxQ7U+UiPO6f8kpLMUEKX5e2EsBgxsIpY85XY1Daya+1kkwHhsFm+n6pBo2nOWFLUxjr2U94+CZyOiyEIMSp6gsTvJR8rsL/NN42rQtocHkbkugp1zFSTX0zncaPzQzx+kmDg=='
-2021-06-16 08:55:35,745 DEBUG Commit thread is waking up
-2021-06-16 08:55:35,789 DEBUG Making request: POST https://oauth2.googleapis.com/token
-2021-06-16 08:55:35,790 DEBUG Starting new HTTPS connection (1): oauth2.googleapis.com:443
-2021-06-16 08:55:35,895 DEBUG https://oauth2.googleapis.com:443 "POST /token HTTP/1.1" 200 None
-2021-06-16 08:55:36,152 DEBUG gRPC Publish took 0.40624403953552246 seconds.
-2021-06-16 08:55:36,154 INFO Published MessageID: 2543298155594522
-2021-06-16 08:55:36,154 INFO End PubSub Publish
-2021-06-16 08:55:36,154 INFO >>>>>>>>>>> END <<<<<<<<<<<
+2021-11-14 09:13:44,301 INFO >>>>>>>>>>> Start Encrypt with Service Account Public Key Reference <<<<<<<<<<<
+2021-11-14 09:13:44,301 INFO   Using remote public key_id = 3e3afe31e14b530f98b5239cffc3f7808fe983fe
+2021-11-14 09:13:44,301 INFO   For service account at: https://www.googleapis.com/service_accounts/v1/metadata/x509/subscriber@mineral-minutia-820.iam.gserviceaccount.com
+2021-11-14 09:13:44,679 INFO Generated DEK: {
+  "primaryKeyId": 1251169772,
+  "key": [
+    {
+      "keyData": {
+        "typeUrl": "type.googleapis.com/google.crypto.tink.AesGcmKey",
+        "value": "GiCi767uwFsZ8YhF05g2vcpaHiqI8bENe0fK6MsuJVZSow==",
+        "keyMaterialType": "SYMMETRIC"
+      },
+      "status": "ENABLED",
+      "keyId": 1251169772,
+      "outputPrefixType": "TINK"
+    }
+  ]
+}
+2021-11-14 09:13:44,679 INFO DEK Encrypted Message: AUqTVew3kOVexYZT9yKBCyJJaZnWwU2Oj98PzrUMCtDv4bLuiZW8v/2HWybjAVen0obeVMBSPLQR4p7gTDu4SCmrA90G8UHLczhLKSe22PbukHOY1HciyM0oDGHIlqN3C6TMtifPs32drYFwuTiKLVKHl/Xq+ukFwFMd12zq
+2021-11-14 09:13:44,680 INFO Wrapped DEK d2jbxVxug3yfUVfY/2B82mr6JbrGtCS5XAg7aB5vUPaHJFYE/dys+Vy/1H6oXpfOuztBKiPF3f/je3rioEQhiBpMYm/0prRfHZ0FWoBuKGtcD+xeIob3RZNVc3apaFQAJPWQggs6rflKJacnLQTbQFpysd6aaO1NiCu09pdzO0weNtyGp/R3kbV52aKhptuPitw+uewjMcJVwhGA+C52+QgpyGWRq4TLXOdkF2BxYsTBkDR/KYzNtp+MsUdU7ONyDuHo/O5/UjwhODN/SPjyy/dvz6jsYXsT4FcuAKb+pChVGVlYiMIgFd5E4CJLwwMPcSIwk0FOOor/FO2c2Xtonw==
+2021-11-14 09:13:44,681 INFO Start PubSub Publish
+2021-11-14 09:13:44,681 INFO Published Message: AUqTVew3kOVexYZT9yKBCyJJaZnWwU2Oj98PzrUMCtDv4bLuiZW8v/2HWybjAVen0obeVMBSPLQR4p7gTDu4SCmrA90G8UHLczhLKSe22PbukHOY1HciyM0oDGHIlqN3C6TMtifPs32drYFwuTiKLVKHl/Xq+ukFwFMd12zq
+2021-11-14 09:13:45,107 INFO Published MessageID: 3343866723754397
+2021-11-14 09:13:45,107 INFO End PubSub Publish
+2021-11-14 09:13:45,107 INFO >>>>>>>>>>> END <<<<<<<<<<<
 ```
 
-Note, we are specifying the `key_id` and email for the **subscriber** (`9193775e9cae64eb62404875a20c05d44ab4c0bf`)
+Note, we are specifying the `key_id` and email for the **subscriber** (`3e3afe31e14b530f98b5239cffc3f7808fe983fe`)
 
 
 - Subscriber:
 
 ```log
-$ python subscriber.py  --mode decrypt --cert_service_account '../subscriber.json' --project_id $PROJECT_ID --pubsub_topic my-new-topic  --pubsub_subscription my-new-subscriber
+$ python subscriber.py  --mode decrypt --cert_service_account 'subscriber.json' --project_id $PROJECT_ID \
+  --pubsub_topic my-new-topic  --pubsub_subscription my-new-subscriber
 
-2021-06-16 08:51:36,454 INFO Listening for messages on projects/pubsub-msg/subscriptions/my-new-subscriber
-2021-06-16 08:55:37,120 INFO ********** Start PubsubMessage 
-2021-06-16 08:55:37,121 INFO Received message ID: 2543298155594522
-2021-06-16 08:55:37,121 INFO Received message publish_time: 2021-06-16 12:55:36.123000+00:00
-2021-06-16 08:55:37,121 INFO Attempting to decrypt message: b'"WSP8L7zeKm+hpHq9kT0XYID7vQfsd0MRPlvWX2uosSZGKfBPhZOSAU+tfSGh3Ro/5GaWzpGr/wY9qLWZJG1zrgthBwcr1r4Jl/VVq5ew4mmsFWqBCFT2WO8UUQdnKHSSSPCAPSsxu/QjOBeXMtTV3gIeZBA5MZMuwCXEFSU/M55sQOsAp4s0nDvYgDMFj4IbCZxusdkNqx4YXvfEcNxQ7U+UiPO6f8kpLMUEKX5e2EsBgxsIpY85XY1Daya+1kkwHhsFm+n6pBo2nOWFLUxjr2U94+CZyOiyEIMSp6gsTvJR8rsL/NN42rQtocHkbkugp1zFSTX0zncaPzQzx+kmDg=="'
-2021-06-16 08:55:37,123 INFO   Using service_account/key_id: subscriber@pubsub-msg.iam.gserviceaccount.com 9193775e9cae64eb62404875a20c05d44ab4c0bf
-2021-06-16 08:55:37,130 INFO Decrypted Message payload: {"data": "foo", "attributes": {"epoch_time": 1623848135, "a": "aaa", "c": "ccc", "b": "bbb"}}
-2021-06-16 08:55:37,131 INFO ********** End PubsubMessage 
+2021-11-14 09:13:31,369 INFO Listening for messages on projects/mineral-minutia-820/subscriptions/my-new-subscriber
+2021-11-14 09:13:46,026 INFO ********** Start PubsubMessage 
+2021-11-14 09:13:46,026 INFO Received message ID: 3343866723754397
+2021-11-14 09:13:46,026 INFO Received message publish_time: 2021-11-14 14:13:45.007000+00:00
+2021-11-14 09:13:46,027 INFO Attempting to decrypt message: b'AUqTVew3kOVexYZT9yKBCyJJaZnWwU2Oj98PzrUMCtDv4bLuiZW8v/2HWybjAVen0obeVMBSPLQR4p7gTDu4SCmrA90G8UHLczhLKSe22PbukHOY1HciyM0oDGHIlqN3C6TMtifPs32drYFwuTiKLVKHl/Xq+ukFwFMd12zq'
+2021-11-14 09:13:46,027 INFO   Using service_account/key_id: subscriber@mineral-minutia-820.iam.gserviceaccount.com 3e3afe31e14b530f98b5239cffc3f7808fe983fe
+2021-11-14 09:13:46,039 INFO Wrapped DEK d2jbxVxug3yfUVfY/2B82mr6JbrGtCS5XAg7aB5vUPaHJFYE/dys+Vy/1H6oXpfOuztBKiPF3f/je3rioEQhiBpMYm/0prRfHZ0FWoBuKGtcD+xeIob3RZNVc3apaFQAJPWQggs6rflKJacnLQTbQFpysd6aaO1NiCu09pdzO0weNtyGp/R3kbV52aKhptuPitw+uewjMcJVwhGA+C52+QgpyGWRq4TLXOdkF2BxYsTBkDR/KYzNtp+MsUdU7ONyDuHo/O5/UjwhODN/SPjyy/dvz6jsYXsT4FcuAKb+pChVGVlYiMIgFd5E4CJLwwMPcSIwk0FOOor/FO2c2Xtonw==
+2021-11-14 09:13:46,040 INFO Decrypted DEK COyrzdQEEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIKLvru7AWxnxiEXTmDa9yloeKojxsQ17R8royy4lVlKjGAEQARjsq83UBCAB
+2021-11-14 09:13:46,040 INFO {
+  "primaryKeyId": 1251169772,
+  "key": [
+    {
+      "keyData": {
+        "typeUrl": "type.googleapis.com/google.crypto.tink.AesGcmKey",
+        "value": "GiCi767uwFsZ8YhF05g2vcpaHiqI8bENe0fK6MsuJVZSow==",
+        "keyMaterialType": "SYMMETRIC"
+      },
+      "status": "ENABLED",
+      "keyId": 1251169772,
+      "outputPrefixType": "TINK"
+    }
+  ]
+}
+2021-11-14 09:13:46,040 INFO Decrypted Message payload: {"data": "foo", "attributes": {"epoch_time": 1636899224, "a": "aaa", "c": "ccc", "b": "bbb"}}
+2021-11-14 09:13:46,040 INFO ********** End PubsubMessage
 ```
 
 
@@ -159,41 +216,54 @@ For signing, we do something similar where we're singing just what we would put 
 - Publisher
 
 Note, we are using the rec
+
 ```log
-$ python publisher.py  --mode sign --cert_service_account '../publisher.json' --project_id $PROJECT_ID --pubsub_topic my-new-topic \
+$ python publisher.py  --mode sign --cert_service_account 'publisher.json' --project_id $PROJECT_ID --pubsub_topic my-new-topic \
   --recipient subscriber@$PROJECT_ID.iam.gserviceaccount.com 
 
-2021-06-16 09:08:25,179 INFO >>>>>>>>>>> Start Sign with Service Account json KEY <<<<<<<<<<<
-2021-06-16 09:08:25,184 INFO Signature: U7mmIY+sY96TjH3SE/PB61NTLcctyQuuOQgbONtoo+98DEH1YEjlL+0HzznqsXktM0l61rO+ALZ9XLGX+bJN73adop16a8ih0YMOrL+26IhZLQzOsaYA+YXMbkB9/DyarQ1odnYzstNewR1ZQHNVncq2hiX+OwjIaa04GnV7p5XPOeFJcLRvWSiuXDAp69Mh3+VMNCPkX65UedkVbl3q5qL9gUFx8ZGAyx+Y7kaqmEjJJu1G0Y4OhNrxBjQv1zwj3Fna/6GykuwvhoI8Or9yRhlt39RhVA72QMfNCVwPDhkZcqOohFwMOoPk6tmoTKjS7pkaJ62T4XAlYWM4T0A8ng==
-2021-06-16 09:08:25,184 INFO Start PubSub Publish
-2021-06-16 09:08:25,184 DEBUG Checking None for explicit credentials as part of auth process...
-2021-06-16 09:08:25,184 DEBUG Checking Cloud SDK credentials as part of auth process...
-2021-06-16 09:08:25,708 INFO Published Message: {'data': b'foo', 'attributes': {'epoch_time': 1623848905, 'a': 'aaa', 'c': 'ccc', 'b': 'bbb'}}
-2021-06-16 09:08:25,718 DEBUG Commit thread is waking up
-2021-06-16 09:08:25,754 DEBUG Making request: POST https://oauth2.googleapis.com/token
-2021-06-16 09:08:25,763 DEBUG Starting new HTTPS connection (1): oauth2.googleapis.com:443
-2021-06-16 09:08:25,910 DEBUG https://oauth2.googleapis.com:443 "POST /token HTTP/1.1" 200 None
-2021-06-16 09:08:26,021 DEBUG gRPC Publish took 0.3017094135284424 seconds.
-2021-06-16 09:08:26,022 INFO Published MessageID: 2543421296695615
-2021-06-16 09:08:26,022 INFO End PubSub Publish
-2021-06-16 09:08:26,022 INFO >>>>>>>>>>> END <<<<<<<<<<<
+2021-11-14 09:14:41,573 INFO >>>>>>>>>>> Start Sign with Service Account <<<<<<<<<<<
+2021-11-14 09:14:41,573 INFO data_to_sign +QvtZSuz6v60cQDFz9ngRC19a09Qh6NS2EPntBUWhUE=
+2021-11-14 09:14:41,580 INFO Signature: pVAGKt4YO5yOj8SjidPAtnLLENjfOnBnPU4wmmYbnvZY5fVcwv/ZKQ67mFL2IkQnn9+dDzpUgSa3lKNYUw9cI4ElWIP9k76XE8pyyoCSPoYzkBmaKSVoA3BcD0yrp9Ids0DpRP0tYxPdYYKne+H9DJeYofvuiZ4mG2JaGNuUCNJYoCtY+zDzxipj0+4hyjU8gCNA5ehre+d8EIpdT0N1JaFbdJE3MnMnfxdBYbEMBbeKJ5ordzsTeuRxGQxtwauow+dz1/pz1bRyxrlpkvugO4XaBn7y1PwWcw9jCE6T7NeY4O4MxjUJhrtW/tQfs0EDcFA0FzUtjwae+g1eAKe7LQ==
+2021-11-14 09:14:41,580 INFO key_id 0e447c01d19c8288743ec73edee55b137891a43c
+2021-11-14 09:14:41,580 INFO service_account publisher@mineral-minutia-820.iam.gserviceaccount.com
+2021-11-14 09:14:41,580 INFO Start PubSub Publish
+2021-11-14 09:14:42,048 INFO Published Message: {'data': b'foo', 'attributes': {'epoch_time': 1636899281, 'a': 'aaa', 'c': 'ccc', 'b': 'bbb'}}
+2021-11-14 09:14:42,261 INFO Published MessageID: 3343866893326339
+2021-11-14 09:14:42,261 INFO End PubSub Publish
+2021-11-14 09:14:42,261 INFO >>>>>>>>>>> END <<<<<<<<<<<
 ```
 
 - Subscriber
 ```log
-$ python subscriber.py  --mode verify --cert_service_account '../subscriber.json' --project_id $PROJECT_ID --pubsub_topic my-new-topic  --pubsub_subscription my-new-subscriber
+$ python subscriber.py  --mode verify --cert_service_account 'subscriber.json' --project_id $PROJECT_ID \
+  --pubsub_topic my-new-topic  --pubsub_subscription my-new-subscriber
 
-2021-06-16 09:08:08,791 INFO Listening for messages on projects/pubsub-msg/subscriptions/my-new-subscriber
-2021-06-16 09:08:26,063 INFO ********** Start PubsubMessage 
-2021-06-16 09:08:26,064 INFO Received message ID: 2543421296695615
-2021-06-16 09:08:26,064 INFO Received message publish_time: 2021-06-16 13:08:26.015000+00:00
-2021-06-16 09:08:26,064 INFO Attempting to verify message: b'{"data": "foo", "attributes": {"epoch_time": 1623848905, "a": "aaa", "c": "ccc", "b": "bbb"}}'
-2021-06-16 09:08:26,064 INFO Verify message with signature: U7mmIY+sY96TjH3SE/PB61NTLcctyQuuOQgbONtoo+98DEH1YEjlL+0HzznqsXktM0l61rO+ALZ9XLGX+bJN73adop16a8ih0YMOrL+26IhZLQzOsaYA+YXMbkB9/DyarQ1odnYzstNewR1ZQHNVncq2hiX+OwjIaa04GnV7p5XPOeFJcLRvWSiuXDAp69Mh3+VMNCPkX65UedkVbl3q5qL9gUFx8ZGAyx+Y7kaqmEjJJu1G0Y4OhNrxBjQv1zwj3Fna/6GykuwvhoI8Or9yRhlt39RhVA72QMfNCVwPDhkZcqOohFwMOoPk6tmoTKjS7pkaJ62T4XAlYWM4T0A8ng==
-2021-06-16 09:08:26,064 INFO   Using service_account/key_id: publisher@pubsub-msg.iam.gserviceaccount.com b3745702cb47d267c232f609a2614ba274ddf788
-2021-06-16 09:08:26,118 INFO Message integrity verified
-2021-06-16 09:08:26,118 INFO ********** End PubsubMessage 
+2021-11-14 09:14:32,075 INFO Listening for messages on projects/mineral-minutia-820/subscriptions/my-new-subscriber
+2021-11-14 09:14:43,306 INFO ********** Start PubsubMessage 
+2021-11-14 09:14:43,307 INFO Received message ID: 3343866893326339
+2021-11-14 09:14:43,307 INFO Received message publish_time: 2021-11-14 14:14:42.256000+00:00
+2021-11-14 09:14:43,308 INFO Attempting to verify message: b'{"data": "foo", "attributes": {"epoch_time": 1636899281, "a": "aaa", "c": "ccc", "b": "bbb"}}'
+2021-11-14 09:14:43,308 INFO data_to_verify +QvtZSuz6v60cQDFz9ngRC19a09Qh6NS2EPntBUWhUE=
+2021-11-14 09:14:43,308 INFO Verify message with signature: pVAGKt4YO5yOj8SjidPAtnLLENjfOnBnPU4wmmYbnvZY5fVcwv/ZKQ67mFL2IkQnn9+dDzpUgSa3lKNYUw9cI4ElWIP9k76XE8pyyoCSPoYzkBmaKSVoA3BcD0yrp9Ids0DpRP0tYxPdYYKne+H9DJeYofvuiZ4mG2JaGNuUCNJYoCtY+zDzxipj0+4hyjU8gCNA5ehre+d8EIpdT0N1JaFbdJE3MnMnfxdBYbEMBbeKJ5ordzsTeuRxGQxtwauow+dz1/pz1bRyxrlpkvugO4XaBn7y1PwWcw9jCE6T7NeY4O4MxjUJhrtW/tQfs0EDcFA0FzUtjwae+g1eAKe7LQ==
+2021-11-14 09:14:43,308 INFO   Using service_account/key_id: publisher@mineral-minutia-820.iam.gserviceaccount.com 0e447c01d19c8288743ec73edee55b137891a43c
+2021-11-14 09:14:43,355 INFO Message integrity verified
+2021-11-14 09:14:43,356 INFO ********** End PubsubMessage
 ```
 
+If you wanted to use impersonation for the publisher
+
+```log
+python publisher.py  --mode sign --impersonated_service_account publisher@$PROJECT_ID.iam.gserviceaccount.com \
+  --project_id $PROJECT_ID --pubsub_topic my-new-topic \
+  --recipient subscriber@$PROJECT_ID.iam.gserviceaccount.com 
+```
+
+then on the subscriber
+
+```log
+python subscriber.py  --mode verify --cert_service_account 'subscriber.json' \
+    --project_id $PROJECT_ID --pubsub_topic my-new-topic  --pubsub_subscription my-new-subscriber
+```
 ### the good and the bad   
 
 Ok, now that we went using GCP -provided service account public/private keys
@@ -221,9 +291,6 @@ This is a more complex way to encrypt or sign your messages using GCP's PKI for 
 Can we improve on this?  Lets see if using GCP's [Key Management System (KMS)](https://cloud.google.com/kms/docs/) helps with this in the next set of articles in the series
 
 ## Appendix
-
-### Code
-
 
 ### References
 

@@ -68,9 +68,7 @@ topic_name = 'projects/{project_id}/topics/{topic}'.format(
     topic=PUBSUB_TOPIC,
 )
 
-#BLOCK_SIZE=256
-#key = binascii.hexlify(os.urandom(BLOCK_SIZE))
-#print key
+
 key = args.key
 
 logging.info(">>>>>>>>>>> Start <<<<<<<<<<<")
@@ -89,7 +87,9 @@ cleartext_message = {
 
 if args.mode=='encrypt':
     logging.info("Starting AES encryption")
+
     ac = AESCipher(key)
+    logging.info("Loaded Key: " + ac.printKeyInfo())
     msg = ac.encrypt(json.dumps(cleartext_message).encode('utf-8'),associated_data='')
     logging.info("End AES encryption")
     logging.info("Start PubSub Publish")
@@ -101,6 +101,7 @@ if args.mode=='encrypt':
 if args.mode=='sign':
     logging.info("Starting signature")
     hh = HMACFunctions(key)
+    logging.info("Loaded Key: " + hh.printKeyInfo())
     msg_hash = hh.hash(json.dumps(cleartext_message).encode('utf-8'))
     logging.info("End signature")
 

@@ -51,14 +51,8 @@ class AESCipher(object):
           reader = tink.BinaryKeysetReader(base64.b64decode(encoded_key))
           self.keyset_handle = cleartext_keyset_handle.read(reader)        
 
-      tink_config.register()
-      aead.register()
-
       self.key=self.keyset_handle.keyset_info()
       self.aead_primitive = self.keyset_handle.primitive(aead.Aead)
-
-    def printKeyInfo(self):
-      print(self.keyset_handle.keyset_info())
 
     def getKey(self):
       iostream = io.BytesIO()
@@ -69,16 +63,27 @@ class AESCipher(object):
         writer.write(self.keyset_handle._keyset)
       encoded_key = base64.b64encode(iostream.getvalue()).decode('utf-8')
       return base64.b64encode(iostream.getvalue()).decode('utf-8')
-      
+
+    def printKeyInfo(self):
+      stream = io.StringIO()
+      writer = tink.JsonKeysetWriter(stream)    
+      cleartext_keyset_handle.write(writer, self.keyset_handle)
+      return stream.getvalue()
 
     def encrypt(self, plaintext, associated_data):
-      ciphertext = self.aead_primitive.encrypt(plaintext, associated_data.encode('utf-8'))
-      base64_bytes = base64.b64encode(ciphertext)
-      return (base64_bytes.decode('utf-8'))  
+      try:
+        ciphertext = self.aead_primitive.encrypt(plaintext, associated_data.encode('utf-8'))
+        base64_bytes = base64.b64encode(ciphertext)
+        return (base64_bytes.decode('utf-8'))  
+      except tink.TinkError as e:
+        raise e
 
     def decrypt(self, ciphertext, associated_data):
-      plaintext = self.aead_primitive.decrypt(base64.b64decode(ciphertext), associated_data.encode('utf-8'))
-      return(plaintext.decode('utf-8'))
+      try:
+        plaintext = self.aead_primitive.decrypt(base64.b64decode(ciphertext), associated_data.encode('utf-8'))
+        return(plaintext.decode('utf-8'))
+      except tink.TinkError as e:
+        raise e
 
 class HMACFunctions(object):
 
@@ -100,10 +105,11 @@ class HMACFunctions(object):
           self.keyset_handle = cleartext_keyset_handle.read(reader)        
       self.mac = self.keyset_handle.primitive(mac.Mac)
 
-
-
     def printKeyInfo(self):
-      print(self.keyset_handle.keyset_info())
+      stream = io.StringIO()
+      writer = tink.JsonKeysetWriter(stream)    
+      cleartext_keyset_handle.write(writer, self.keyset_handle)
+      return stream.getvalue()
 
     def getKey(self):
       iostream = io.BytesIO()
@@ -124,5 +130,31 @@ class HMACFunctions(object):
         self.mac.verify_mac(signature, data)
         return True
       except tink.TinkError as e:
-        return False
- 
+        raise e
+
+## example of using kms encrypted keysets...
+# keyURI="gcp-kms://projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1"
+
+# print("AES")
+# cc = AESCipher(encoded_key=None,key_uri=keyURI)
+# k = cc.getKey()
+# print(cc.printKeyInfo())
+
+
+# cc = AESCipher(encoded_key=k,key_uri=keyURI)
+# enc=cc.encrypt("foo".encode('utf-8'),"none")
+# print(enc)
+# dec = cc.decrypt(enc,"none")
+# print(dec)
+
+# print("HMAC")
+
+# h = HMACFunctions(encoded_key=None,key_uri=keyURI)
+# k = h.getKey()
+# print(h.printKeyInfo())
+
+# h = HMACFunctions(encoded_key=k,key_uri=keyURI)
+# dd = "dsfas"
+# hashed=h.hash(dd.encode('utf-8'))
+# print(base64.b64encode(hashed).decode('utf-8'))
+# print(h.verify(dd.encode('utf-8'),base64.b64decode(hashed)))

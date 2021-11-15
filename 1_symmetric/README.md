@@ -58,7 +58,7 @@ Then what we're going to encrypt is a JSON struct for the message representation
 So as transmitted PubSub Message:
 ```json
 data:  <encrypted_message>
-attributes: <null>
+attributes: null
 ```
 
 Note: we are encrypting and decrypting just the ```data:``` field with a json struct and embedding attributes within it.  What that means is the attributes within the  PubSubMessage may differ from the attributes placed within the encrypted message
@@ -68,7 +68,7 @@ Note: we are encrypting and decrypting just the ```data:``` field with a json st
 For signed message, we need to transmit the message itself with the signature. For verification, we need will extract the signature in the header and compare. As was the case with encryption, we are verifying the payload within the ```data``` field.  As above, there maybe a variation between the PubSubMessage attributes and the attributes embedded in the data payload:
 
 ```json
-_json_message = {
+json_message = {
     "data": "foo",
     "attributes": {
       "attribute1": "value1",
@@ -80,9 +80,9 @@ _json_message = {
 So as transmitted PubSubMessage would be:
 
 ```json
-data:  _json_message
+data:  json_message
 attributes:
-   "signature": hmac(_json_message)
+   "signature": hmac(json_message)
 ```
 
 Note: what this means is you can't use any attribute within the PubSubMessage for integrity checks; you must use the embedded attributes within the data: that we signed.  
@@ -121,7 +121,7 @@ cleartext_message = {
     }
 ```
 
-we will initialize a shared key, encrypt it and finally transmit the encrypted message as the ```data``` field.   
+we will initialize a shared TINK AES key, encrypt it and finally transmit the encrypted message as the ```data``` field.   
 
 Once the subscriber get this message, we will reverse it by extracting the message data and then decrypting it with our shared key:
 
@@ -130,44 +130,44 @@ You can initialize a new HMAC or AES key by running the `util.py` command with
 ```python
 cc = AESCipher(encoded_key=None)
 k = cc.getKey()
-cc.printKeyInfo()
-print(k)
+print(cc.printKeyInfo())
 
 h = HMACFunctions(encoded_key=None)
 k = h.getKey()
-h.printKeyInfo()
-print(k)
+print(h.printKeyInfo())
 ```
 
-#### output
+The specific key here is a [Tink KeySet](https://github.com/google/tink/blob/master/docs/KEY-MANAGEMENT.md).  For more examples see [Simple Examples of using Tink Encryption library in Golang](https://github.com/salrashid123/tink_samples)
 
 - Publisher
-```
+```log
 $ python publisher.py  --mode encrypt --project_id  $PROJECT_ID --pubsub_topic my-new-topic \
       --key CNTdsdcDEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIAf5r2mLlMM8FrY3QqJooMn5mK8BFpEVWR07es7neXECGAEQARjU3bHXAyAB
 
-2021-05-25 06:48:58,489 INFO >>>>>>>>>>> Start <<<<<<<<<<<
-2021-05-25 06:48:58,489 INFO Starting AES encryption
-2021-05-25 06:48:58,490 INFO End AES encryption
-2021-05-25 06:48:58,490 INFO Start PubSub Publish
-2021-05-25 06:48:58,491 INFO Published Message: ATrsbtSFj5ipJL4clsuSZjW0tj3L1jNKPnDQmBK4sBjv02R4T8LWdzt5Crw7Qrh5RxKJgv7If9JCLM8dA4kKJZJYEzkX6CvZ1wYJ6KGDigsRWkTYA0G3IB/+35zsnJjhwhzuyDmQ5FXEKUd1SvdwnfKVufs5Jth8lPvpeOOb
-2021-05-25 06:48:58,843 INFO Published Message: 2472720406184438
-2021-05-25 06:48:58,843 INFO End PubSub Publish
-2021-05-25 06:48:58,843 INFO >>>>>>>>>>> END <<<<<<<<<<<
+2021-11-14 09:00:43,604 INFO >>>>>>>>>>> Start <<<<<<<<<<<
+2021-11-14 09:00:43,604 INFO Starting AES encryption
+2021-11-14 09:00:43,605 INFO End AES encryption
+2021-11-14 09:00:43,605 INFO Start PubSub Publish
+2021-11-14 09:00:43,606 INFO Published Message: ATrsbtQnE/yvKT7H2qskouMf97glaXbOe5+DgJZaRFjp/mGmDkgLN1YwBMdjAPxVnb5sGAXvxvK6b3nF+kmImYZd1nDbMMJXQE0iI5BXsBm1ASdWvUtrW8lsi5rgqk4LPlC9s/AxG1t9EgU6EVSzzdCYkMtjhaIOYt7ww/q/
+2021-11-14 09:00:43,989 INFO Published MessageID: 3343825236747786
+2021-11-14 09:00:43,990 INFO End PubSub Publish
+2021-11-14 09:00:43,990 INFO >>>>>>>>>>> END <<<<<<<<<<<
 ```
 
 - Subscriber:
-```
+```log
 $  python subscriber.py  --mode decrypt --project_id $PROJECT_ID --pubsub_subscription my-new-subscriber \
    --key CNTdsdcDEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIAf5r2mLlMM8FrY3QqJooMn5mK8BFpEVWR07es7neXECGAEQARjU3bHXAyAB
 
-2021-05-25 06:49:00,061 INFO ********** Start PubsubMessage 
-2021-05-25 06:49:00,062 INFO Received message ID: 2472720406184438
-2021-05-25 06:49:00,063 INFO Received message publish_time: 2021-05-25 10:48:58.865000+00:00
-2021-05-25 06:49:00,065 INFO Decrypted data {"data": "foo", "attributes": {"epoch_time": 1621939738, "a": "aaa", "c": "ccc", "b": "bbb"}}
-2021-05-25 06:49:00,066 INFO ACK message
-2021-05-25 06:49:00,066 INFO End AES decryption
-2021-05-25 06:49:00,067 INFO ********** End PubsubMessage
+2021-11-14 09:00:34,652 INFO >>>>>>>>>>> Start <<<<<<<<<<<
+2021-11-14 09:00:35,127 INFO Listening for messages on projects/mineral-minutia-820/subscriptions/my-new-subscriber
+2021-11-14 09:00:44,882 INFO ********** Start PubsubMessage 
+2021-11-14 09:00:44,882 INFO Received message ID: 3343825236747786
+2021-11-14 09:00:44,882 INFO Received message publish_time: 2021-11-14 14:00:43.878000+00:00
+2021-11-14 09:00:44,885 INFO Decrypted data {"data": "foo", "attributes": {"epoch_time": 1636898443, "a": "aaa", "c": "ccc", "b": "bbb"}}
+2021-11-14 09:00:44,885 INFO ACK message
+2021-11-14 09:00:44,885 INFO End AES decryption
+2021-11-14 09:00:44,885 INFO ********** End PubsubMessage
 ```
 
 > The code all this can be found in the Appendix
@@ -193,37 +193,37 @@ Here is a sample run:
 
 - Publisher
 
-```
+```log
 $ python publisher.py  --mode sign  --project_id $PROJECT_ID --pubsub_topic my-new-topic \
     --key CKWPmvcHEmgKXAoudHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuSG1hY0tleRIoEgQIAxAgGiD2EEISnDEm0nrcySPD9mNiiMxf6vlsj5gH+KjXp+BmABgBEAEYpY+a9wcgAQ==
 
-2021-05-25 06:55:45,883 INFO >>>>>>>>>>> Start <<<<<<<<<<<
-2021-05-25 06:55:45,883 INFO Starting signature
-2021-05-25 06:55:45,883 INFO End signature
-2021-05-25 06:55:45,884 INFO Start PubSub Publish
-2021-05-25 06:55:45,884 INFO Published Message: {"data": "foo", "attributes": {"epoch_time": 1621940145, "a": "aaa", "c": "ccc", "b": "bbb"}}
-2021-05-25 06:55:45,884 INFO   with hmac: b'AX7mh6X2SfZvqvom5/iq0xe8WCKIiULdnylc3KWhuex64A5dpA=='
-2021-05-25 06:55:46,283 INFO Published MessageID: 2472721840282059
-2021-05-25 06:55:46,284 INFO End PubSub Publish
-2021-05-25 06:55:46,284 INFO >>>>>>>>>>> END <<<<<<<<<<<
+2021-11-14 09:01:34,468 INFO >>>>>>>>>>> Start <<<<<<<<<<<
+2021-11-14 09:01:34,468 INFO Starting signature
+2021-11-14 09:01:34,469 INFO End signature
+2021-11-14 09:01:34,469 INFO Start PubSub Publish
+2021-11-14 09:01:34,470 INFO Published Message: {"data": "foo", "attributes": {"epoch_time": 1636898494, "a": "aaa", "c": "ccc", "b": "bbb"}}
+2021-11-14 09:01:34,470 INFO   with hmac: b'AX7mh6UbBt7MDUPlu90JT9vLMwKyYio9virLUp5Kphso2CzLyg=='
+2021-11-14 09:01:34,774 INFO Published MessageID: 3343789993964544
+2021-11-14 09:01:34,775 INFO End PubSub Publish
+2021-11-14 09:01:34,775 INFO >>>>>>>>>>> END <<<<<<<<<<<
 ```
 
 - Subscriber
 
-```
+```log
 $  python subscriber.py --mode verify --project_id $PROJECT_ID --pubsub_subscription my-new-subscriber \
   --key CKWPmvcHEmgKXAoudHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuSG1hY0tleRIoEgQIAxAgGiD2EEISnDEm0nrcySPD9mNiiMxf6vlsj5gH+KjXp+BmABgBEAEYpY+a9wcgAQ==
 
-2021-05-25 06:55:34,246 INFO >>>>>>>>>>> Start <<<<<<<<<<<
-2021-05-25 06:55:34,740 INFO Listening for messages on projects/mineral-minutia-820/subscriptions/my-new-subscriber
-2021-05-25 06:55:47,229 INFO ********** Start PubsubMessage 
-2021-05-25 06:55:47,230 INFO Received message ID: 2472721840282059
-2021-05-25 06:55:47,231 INFO Received message publish_time: 2021-05-25 10:55:46.276000+00:00
-2021-05-25 06:55:47,232 INFO Starting HMAC
-2021-05-25 06:55:47,233 INFO Verify message: b'{"data": "foo", "attributes": {"epoch_time": 1621940145, "a": "aaa", "c": "ccc", "b": "bbb"}}'
-2021-05-25 06:55:47,234 INFO   With HMAC: AX7mh6X2SfZvqvom5/iq0xe8WCKIiULdnylc3KWhuex64A5dpA==
-2021-05-25 06:55:47,234 INFO Message authenticity verified
-2021-05-25 06:55:47,234 INFO ********** End PubsubMessage
+2021-11-14 09:01:17,872 INFO >>>>>>>>>>> Start <<<<<<<<<<<
+2021-11-14 09:01:18,353 INFO Listening for messages on projects/mineral-minutia-820/subscriptions/my-new-subscriber
+2021-11-14 09:01:35,717 INFO ********** Start PubsubMessage 
+2021-11-14 09:01:35,717 INFO Received message ID: 3343789993964544
+2021-11-14 09:01:35,717 INFO Received message publish_time: 2021-11-14 14:01:34.767000+00:00
+2021-11-14 09:01:35,717 INFO Starting HMAC
+2021-11-14 09:01:35,718 INFO Verify message: b'{"data": "foo", "attributes": {"epoch_time": 1636898494, "a": "aaa", "c": "ccc", "b": "bbb"}}'
+2021-11-14 09:01:35,718 INFO   With HMAC: AX7mh6UbBt7MDUPlu90JT9vLMwKyYio9virLUp5Kphso2CzLyg==
+2021-11-14 09:01:35,719 INFO Message authenticity verified
+2021-11-14 09:01:35,719 INFO ********** End PubsubMessage 
 ```
 
 ### The good and the bad
@@ -253,24 +253,6 @@ Can we improve on this?  Lets see if using the [Service Account](https://cloud.g
 
 ## Appendix
 
-### Code
-
-
-## PubSub Service Account Configuration
-
-The following describes the service account permissions needed to access the Topic and Subscription as a service account.   In the examples above, I used application-default credentials
-
-
-- Project:  ```esp-demo-197318```
-- Service Accounts with JSON certificates
-    - Publisher identity:   ```publisher@esp-demo-197318.iam.gserviceaccount.com```
-    - Subscriber identity: ```subscriber@esp-demo-197318.iam.gserviceaccount.com```
-- KeyRing+Key:  ```projects/esp-demo-197318/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1```
-- PubSub:
-    - PUBSUB_TOPIC:  ```projects/esp-demo-197318/topics/my-new-topic```
-    - PUBSUB_SUBSCRIPTION ```projects/esp-demo-197318/subscriptions/my-new-subscriber```
-
-
 
 - Publisher
 ![images/topic_permission.png](images/topic_permissions.png)
@@ -282,19 +264,7 @@ The following describes the service account permissions needed to access the Top
 
 - [Kinesis Message Payload Encryption with AWS KMS ](https://aws.amazon.com/blogs/big-data/encrypt-and-decrypt-amazon-kinesis-records-using-aws-kms/)
 - [Server-Side Encryption with AWS Kinesis](https://aws.amazon.com/blogs/big-data/under-the-hood-of-server-side-encryption-for-amazon-kinesis-streams/)
-- [Enveope Encryption](https://cloud.google.com/kms/docs/envelope-encryption#how_to_encrypt_data_using_envelope_encryption)
+- [Envelope Encryption](https://cloud.google.com/kms/docs/envelope-encryption#how_to_encrypt_data_using_envelope_encryption)
 - [Python Cryptography](https://cryptography.io/en/latest/)
 - [PubSub Message proto](https://github.com/googleapis/googleapis/blob/master/google/pubsub/v1/pubsub.proto#L292)
 
-### Config/Setup
-
-Here is the setup i used in the screenshots below and testing
-
-- Project:  ```esp-demo-197318```
-- Service Accounts with JSON certificates
-    - Publisher identity:   ```publisher@esp-demo-197318.iam.gserviceaccount.com```
-    - Subscriber identity: ```subscriber@esp-demo-197318.iam.gserviceaccount.com```
-- KeyRing+Key:  ```projects/esp-demo-197318/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1```
-- PubSub:
-    - PUBSUB_TOPIC:  ```projects/esp-demo-197318/topics/my-new-topic```
-    - PUBSUB_SUBSCRIPTION ```projects/esp-demo-197318/subscriptions/my-new-subscriber```

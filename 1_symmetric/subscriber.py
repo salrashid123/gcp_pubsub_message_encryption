@@ -26,7 +26,7 @@ import json
 import base64
 import httplib2
 from apiclient.discovery import build
-from oauth2client.client import GoogleCredentials
+from oauth2client.client import Error, GoogleCredentials
 
 import utils
 from utils import AESCipher, HMACFunctions
@@ -75,18 +75,6 @@ subscription_name = 'projects/{project_id}/subscriptions/{sub}'.format(
     sub=PUBSUB_SUBSCRIPTION,
 )
 
-#PUBSUB_TOPIC = args.pubsub_topic
-#topic_name = 'projects/{project_id}/topics/{topic}'.format(
-#    project_id=os.getenv('GOOGLE_CLOUD_PROJECT'),
-#    topic=PUBSUB_TOPIC,
-#)
-#subscriber.create_subscription(name=subscription_name, topic=topic_name)
-
-BLOCK_SIZE = 256
-pad = lambda s: s + (BLOCK_SIZE - len(s) % BLOCK_SIZE) * \
-                chr(BLOCK_SIZE - len(s) % BLOCK_SIZE)
-unpad = lambda s: s[:-ord(s[len(s) - 1:])]
-
 def callback(message):
   logging.info("********** Start PubsubMessage ")
   message.ack()
@@ -94,31 +82,36 @@ def callback(message):
   logging.info('Received message publish_time: {}'.format(message.publish_time))
 
   if args.mode=='decrypt':
-      try:
+      try:    
         ac = AESCipher(key)
+        logging.info("Loaded Key: " + ac.printKeyInfo())        
         decrypted_data = ac.decrypt(message.data,associated_data='')
         logging.info('Decrypted data ' + decrypted_data)
         logging.info("ACK message")
-        message.ack()
-      except:
-        logging.info("Unable to decrypt message; NACK pubsub message")
-        message.nack()
+        message.ack()     
+      except Exception as e:
+        logging.info("Unable to decrypt message; NACK pubsub message " + str(e))
+        message.nack()        
       logging.info("End AES decryption")
 
   if args.mode=='verify':
-    logging.info("Starting HMAC")
-    hmac = message.attributes.get('signature')
-    hh = HMACFunctions(key)
-    logging.info("Verify message: " + str(message.data))
-    logging.info('  With HMAC: ' + str(hmac))
-    hashed=hh.hash(message.data)
-    if (hh.verify(message.data,base64.b64decode(hashed))):
-      logging.info("Message authenticity verified")
-      message.ack()
-    else:
-      logging.error("Unable to verify message")
-      message.nack()
-
+    try:
+      logging.info("Starting HMAC")
+      hmac = message.attributes.get('signature')
+      hh = HMACFunctions(key)
+      logging.info("Loaded Key: " + hh.printKeyInfo())
+      logging.info("Verify message: " + str(message.data))
+      logging.info('  With HMAC: ' + str(hmac))
+      hashed=hh.hash(message.data)
+      if (hh.verify(message.data,base64.b64decode(hashed))):
+        logging.info("Message authenticity verified")
+        message.ack()
+      else:
+        logging.error("Unable to verify message")
+        message.nack()
+    except Exception as e:
+      logging.info("Unable to verify message; NACK pubsub message " +  str(e))
+      message.nack()     
 
   logging.info("********** End PubsubMessage ")
 

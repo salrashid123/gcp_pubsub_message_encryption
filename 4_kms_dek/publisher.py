@@ -61,10 +61,18 @@ if args.mode =="sign":
 
         logging.info("Rotating key")
 
-        keyURI="gcp-kms://" + name
-        hh = HMACFunctions(encoded_key=None,key_uri=keyURI)
-        sign_key_wrapped = hh.getKey()
-        hh = HMACFunctions(encoded_key=sign_key_wrapped,key_uri=keyURI)
+        hh = HMACFunctions(encoded_key=None)
+        sign_key = hh.getKey()
+        logging.info(hh.printKeyInfo())
+        logging.debug("Generated hmac: " + sign_key )
+        logging.info("Starting KMS encryption API call")
+        encrypt_response = kms_client.encrypt(
+            request={'name': name, 'plaintext': sign_key.encode('utf-8'), 'additional_authenticated_data': tenantID.encode('utf-8')  })
+
+        hh_encrypted =  base64.b64encode(encrypt_response.ciphertext).decode('utf-8')  
+
+        logging.info("Wrapped hmac key: " +  hh_encrypted)
+        logging.info("End KMS encryption API call")
         publisher = pubsub.PublisherClient()
 
         for x in range(5):
@@ -89,13 +97,14 @@ if args.mode =="sign":
                 topic=PUBSUB_TOPIC,
                 )
 
-                resp=publisher.publish(topic_name, data=json.dumps(cleartext_message).encode('utf-8'), kms_key=name, sign_key_wrapped=sign_key_wrapped, signature=msg_hash)
+                resp=publisher.publish(topic_name, data=json.dumps(cleartext_message).encode('utf-8'), kms_key=name, sign_key_wrapped=hh_encrypted, signature=msg_hash)
                 logging.info("Published Message: " + str(cleartext_message))
                 logging.info(" with key_id: " + name)
-                logging.debug(" with wrapped signature key " + sign_key_wrapped )
+                logging.debug(" with wrapped signature key " + hh_encrypted )
                 logging.info("Published MessageID: " + resp.result())
 
                 logging.debug("End PubSub Publish")
+                time.sleep(1)
   logging.info(">>>>>>>>>>> END <<<<<<<<<<<")
 
 if args.mode =="encrypt":
@@ -105,19 +114,29 @@ if args.mode =="encrypt":
     ## then picking another DEK and sending N messages with that one.
     ## The subscriber will use a cache of DEK values.  If it detects a DEK in the metadata that doesn't 
     ## match whats in its cache, it will use KMS to try to decode it and then keep it in its cache.
-    for x in range(30):
+    for x in range(5):
         logging.info("Rotating symmetric key")
 
-        keyURI="gcp-kms://" + name
-
-        cc = AESCipher(encoded_key=None,key_uri=keyURI)
+        # create a new TINK AES DEK and encrypt it with KMS.
+        #  (i.,e an encrypted tink keyset)
+        cc = AESCipher(encoded_key=None)
         dek = cc.getKey()
-        ac = AESCipher(encoded_key=dek,key_uri=keyURI)
+        logging.info(cc.printKeyInfo())
 
         logging.debug("Generated dek: " + dek )
+        logging.info("Starting KMS encryption API call")
+        encrypt_response = kms_client.encrypt(
+            request={'name': name, 'plaintext': dek.encode('utf-8'), 'additional_authenticated_data': tenantID.encode('utf-8')  })
+
+        dek_encrypted =  base64.b64encode(encrypt_response.ciphertext).decode('utf-8')  
+
+        logging.info("Wrapped dek: " +  dek_encrypted)
+        logging.info("End KMS encryption API call")
+
+
         publisher = pubsub.PublisherClient()
         logging.info("Start PubSub Publish")
-         ## Send 3messages using the same symmetric key...
+         ## Send 5 messages using the same symmetric key...
         for x in range(5):
                 cleartext_message = {
                         "data" : "foo".encode(),
@@ -129,7 +148,7 @@ if args.mode =="encrypt":
                         }
                 }
                 logging.debug("Start AES encryption")
-                encrypted_message = ac.encrypt(json.dumps(cleartext_message).encode('utf-8'),associated_data=tenantID)
+                encrypted_message = cc.encrypt(json.dumps(cleartext_message).encode('utf-8'),associated_data=tenantID)
                 logging.debug("End AES encryption")
                 logging.debug("Encrypted Message with dek: " + encrypted_message)
 
@@ -138,7 +157,7 @@ if args.mode =="encrypt":
                         topic=PUBSUB_TOPIC,
                 )
 
-                resp=publisher.publish(topic_name, data=encrypted_message.encode(), kms_key=name, dek_wrapped=dek)
+                resp=publisher.publish(topic_name, data=encrypted_message.encode(), kms_key=name, dek_wrapped=dek_encrypted)
                 logging.info("Published Message: " + encrypted_message)
                 logging.info("Published MessageID: " + resp.result())
                 time.sleep(1)

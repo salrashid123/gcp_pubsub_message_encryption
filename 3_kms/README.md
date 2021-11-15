@@ -35,16 +35,10 @@ _json_message = {
 So as transmitted Pub/SubMessage would be:
 
 ```json
-data:  encrypted(_json_message)
+data:  encrypted(json_message)
 attributes:  
     kms_key: (kms_keyid)
 ```
-
-## Signing messages
-
-At the time of writing (6/3/18), GCP KMS supports [.encrypt()](https://cloud.google.com/kms/docs/encrypt-decrypt#encrypt)  and [.decrypt()](https://cloud.google.com/kms/docs/encrypt-decrypt#decrypt) operations.  Its not possible to sign a message in the same sense as the other cases so I'll be skipping this
-
-Update `6/16/21`, yes, KMS does support asymmetric operations but i'm going to skip this anyway...
 
 ## Encryption
 
@@ -54,6 +48,20 @@ Ok, so how does this work?  Its pretty straight forward:
 - Send the encrypted message in the Pub/Sub ```data:``` field and optionally specify a reference to the KMS key_id to use as a hint to the subscriber.
 
 Easy enough, right?  Yes its too easy but has some severe practical limitations for high-volume, high-frequency PubSub messages
+
+
+## Signing
+
+We use KMS MAC keys to sign and verify,.
+
+The signed message looks like this
+
+```json
+data:  _json_message
+attributes:  
+    kms_key: (kms_keyid)
+    signature: hmac(sha256(json_message))
+```
 
 
 ## Setup
@@ -71,76 +79,86 @@ gcloud iam service-accounts create subscriber
 
 gcloud kms keyrings create mykeyring  --location=us-central1
 gcloud kms keys create key1 --keyring=mykeyring --purpose=encryption --location=us-central1
+gcloud kms keys create key2 --keyring=mykeyring --purpose=mac --default-algorithm=hmac-sha256 --location=us-central1
 ```
 
+### Output
 
+The following sample assumes you have IAM permissions to
 
-#### Output
+* a. publish to topic `my-new-topic`
+* b. subscribe on `my-new-subscriber`
+* c. encrypt/hmac with kms `key1`
+* d. decrypt/verify with kms `key2`
+
+If you want to run using the two service accounts created above, you should grant the `publisher` permissions `a` and `c` while the `subscriber` should have permissions `b`, `d`.
+##### Encryption
 
 - Publisher
 ```log
-$ python publisher.py   --project_id $PROJECT_ID --pubsub_topic my-new-topic  --kms_location_id us-central1 --kms_key_ring_id mykeyring --kms_crypto_key_id key1
+$ python publisher.py  --mode=encrypt --project_id $PROJECT_ID --pubsub_topic my-new-topic  --kms_location_id us-central1 --kms_key_ring_id mykeyring --kms_crypto_key_id key1
 
-2021-06-16 09:27:49,617 INFO >>>>>>>>>>> Start <<<<<<<<<<<
-2021-06-16 09:27:49,993 INFO End KMS encryption API call
-2021-06-16 09:27:49,993 INFO Start PubSub Publish
-2021-06-16 09:27:50,565 INFO Published Message: CiQArw4RIGraA1oEWkbz8tRxJK6/7gkKKb9xhbAwMPvqGyXn5csShgEACLNrXzyCWJTlJsv4nPneVUPka1fCO2gVfw3FMovhjlqFdzwezt6inF4AHD4z9we+iwfwdoZfI+NvCimgfCA3Hlu2d5wmRlBQ8mjBDO9iKRrh+I4LZ5/6Hb/54yKJS8sqv7mcb3Lxb6/uXfMTfFNws9OrRqb5MsHPMfqzFgVYJl8uBIh/Zw==
-2021-06-16 09:27:50,767 INFO Published MessageID: 2543476220017669
-2021-06-16 09:27:50,768 INFO End PubSub Publish
-2021-06-16 09:27:50,768 INFO >>>>>>>>>>> END <<<<<<<<<<<
+2021-11-14 09:17:42,482 INFO >>>>>>>>>>> Start <<<<<<<<<<<
+2021-11-14 09:17:42,965 INFO Start KMS encryption API call
+2021-11-14 09:17:43,412 INFO End KMS encryption API call
+2021-11-14 09:17:43,413 INFO Start PubSub Publish
+2021-11-14 09:17:43,414 INFO Published Message: CiUAmT+VVQyCYfCbVH0OWPeWSvBcYEXPFbEH30SG6AI/nq7mxWMPEoYBABBpW9AoUe2HrcpurOdup0CoZF8QlNocdgK+NgLAB2VOu3cpAoWLmGSxcljmGRI9NzJGtu2Tt/GUWxPoT6NLRBpky8umMGPv20gpgtKyEPbhorjNZvD4WGrNRhwrifl25U1UWgRKUEfTqUJkFPaGFdszbP0Krt6rg0+dO6GGc30XohhDe0o=
+2021-11-14 09:17:43,801 INFO Published MessageID: 3343866587961712
+2021-11-14 09:17:43,801 INFO End PubSub Publish
+2021-11-14 09:17:43,801 INFO >>>>>>>>>>> END <<<<<<<<<<<
 ```
 
 - Subscriber
 ```log
-$ python subscriber.py  --project_id $PROJECT_ID --pubsub_topic my-new-topic  --pubsub_subscription my-new-subscriber \
-    --kms_location_id us-central1 --kms_key_ring_id mykeyring --kms_crypto_key_id key1
+$ python subscriber.py  --mode decrypt --project_id $PROJECT_ID --pubsub_topic my-new-topic  --pubsub_subscription my-new-subscriber 
 
-2021-06-16 09:27:44,732 INFO Listening for messages on projects/pubsub-msg/subscriptions/my-new-subscriber
-2021-06-16 09:27:50,803 INFO ********** Start PubsubMessage 
-2021-06-16 09:27:50,804 INFO Received message ID: 2543476220017669
-2021-06-16 09:27:50,804 INFO Received message publish_time: 2021-06-16 13:27:50.762000+00:00
-2021-06-16 09:27:50,804 INFO Received message attributes["kms_key"]: projects/pubsub-msg/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
-2021-06-16 09:27:50,804 INFO Starting KMS decryption API call
-2021-06-16 09:27:51,120 INFO End KMS decryption API call
-2021-06-16 09:27:51,120 INFO Decrypted data {"data": "foo", "attributes": {"epoch_time": 1623850069, "a": "aaa", "c": "ccc", "b": "bbb"}}
-2021-06-16 09:27:51,120 INFO ACK message
-2021-06-16 09:27:51,122 INFO ********** End PubsubMessage 
+2021-11-14 09:17:35,643 INFO Listening for messages on projects/mineral-minutia-820/subscriptions/my-new-subscriber
+2021-11-14 09:17:43,876 INFO ********** Start PubsubMessage 
+2021-11-14 09:17:43,877 INFO Received message ID: 3343866587961712
+2021-11-14 09:17:43,877 INFO Received message publish_time: 2021-11-14 14:17:43.653000+00:00
+2021-11-14 09:17:43,877 INFO Received message attributes["kms_key"]: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key1
+2021-11-14 09:17:43,877 INFO Starting KMS decryption API call
+2021-11-14 09:17:44,276 INFO End KMS decryption API call
+2021-11-14 09:17:44,276 INFO Decrypted data {"data": "foo", "attributes": {"epoch_time": 1636899462, "a": "aaa", "c": "ccc", "b": "bbb"}}
+2021-11-14 09:17:44,277 INFO ACK message
+2021-11-14 09:17:44,277 INFO End AES decryption
+2021-11-14 09:17:44,277 INFO ********** End PubsubMessage 
 ```
 
-## Execution Latency
 
-I ran the full end to end tests here on a GCE instance and on my laptop from home.  I did this to compare the latency it took to run the KMS operation and intentionally did not pay attention to the time for  the pub/sub calls or  local key generation.
+##### Signing
 
-The reasons are fairly obvious: I wanted to gauge the relative network latency (even for one single call over a laptop/home connection).
+```log
+$ python publisher.py  --mode=sign --project_id $PROJECT_ID --pubsub_topic my-new-topic  \
+  --kms_location_id us-central1 --kms_key_ring_id mykeyring --kms_crypto_key_id key2 --kms_crypto_key_version=1
 
-What the output below shows is the subscriber side when a message is received.  It shows the pub/sub message, the KMS decryption and then the AES decryption.
-
-> Note, all this is empirical and the numbers cited is just for one single API call.
-
-### GCE
-
-On GCE, the latency it took to unwrap the AES key from the KMS call was:
-
-- ```Encrypt```:
-
-```19:11:21,596``` --> ```19:11:21,709```    or about ```10ms```
-
-
-- ```Decrypt```:
-
-```19:11:26,409``` --> ```19:11:26,459```   or about ```10ms```
+2021-11-14 09:18:16,702 INFO >>>>>>>>>>> Start <<<<<<<<<<<
+2021-11-14 09:18:17,187 INFO Start KMS mac API call
+2021-11-14 09:18:17,188 INFO data_to_sign e3Tz5WJQcnnZJjiI+WHWPuqikqrY51TAzaZQPxXk5Ig=
+2021-11-14 09:18:17,591 INFO End KMS mac API call
+2021-11-14 09:18:17,591 INFO MAC: FMNvird1CWtHikzwLyr3hOE91RgG08+S9wTDhRCkD0E=
+2021-11-14 09:18:17,591 INFO Start PubSub Publish
+2021-11-14 09:18:18,006 INFO Published MessageID: 3343867410411934
+2021-11-14 09:18:18,006 INFO End PubSub Publish
+2021-11-14 09:18:18,006 INFO >>>>>>>>>>> END <<<<<<<<<<<
+```
 
 
-### Local
+```log
+$ python subscriber.py  --mode verify --project_id $PROJECT_ID --pubsub_topic my-new-topic  --pubsub_subscription my-new-subscriber
 
-On my laptop from home, the latency it took to unwrap the AES key from the KMS call was:
+2021-11-14 09:18:19,000 INFO ********** Start PubsubMessage 
+2021-11-14 09:18:19,001 INFO Received message ID: 3343867410411934
+2021-11-14 09:18:19,001 INFO Received message publish_time: 2021-11-14 14:18:17.908000+00:00
+2021-11-14 09:18:19,001 INFO Received message attributes["kms_key"]: projects/mineral-minutia-820/locations/us-central1/keyRings/mykeyring/cryptoKeys/key2/cryptoKeyVersions/1
+2021-11-14 09:18:19,001 INFO Starting HMAC
+2021-11-14 09:18:19,002 INFO Verify message: b'{"data": "foo", "attributes": {"epoch_time": 1636899496, "a": "aaa", "c": "ccc", "b": "bbb"}}'
+2021-11-14 09:18:19,002 INFO data_to_verify e3Tz5WJQcnnZJjiI+WHWPuqikqrY51TAzaZQPxXk5Ig=
+2021-11-14 09:18:19,002 INFO   With HMAC: FMNvird1CWtHikzwLyr3hOE91RgG08+S9wTDhRCkD0E=
+2021-11-14 09:18:19,434 INFO MAC verified 
+2021-11-14 09:18:19,435 INFO ********** End PubsubMessage
+```
 
-- ```Encrypt```:
-  ```9:02:30,329``` --> ```09:02:31,022```     or about ```700ms```
-
-
-- ```Decrypt```:
- ```09:02:36,077``` -->  ```09:02:36,756```   about the same, ```700ms```
 
 ### the good and the bad
 

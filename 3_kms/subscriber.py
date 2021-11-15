@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# python subscriber.py   --service_account '../svc-subscriber.json' --project_id esp-demo-197318 --pubsub_topic my-new-topic  --pubsub_subscription my-new-subscriber --kms_location_id us-central1 --kms_key_ring_id mykeyring --kms_crypto_key_id key1
-
 import os
 import time
 import argparse
@@ -25,17 +23,16 @@ from google.cloud import kms
 import json
 import base64
 import httplib2
+import hashlib
 
 import logging
 
 parser = argparse.ArgumentParser(description='Publish encrypted message with KMS only')
+parser.add_argument('--mode',required=True, choices=['decrypt','verify'], help='mode must be decrypt or verify')
 parser.add_argument('--service_account',required=False,help='publisher service_acount credentials file')
 parser.add_argument('--project_id',required=True, help='publisher service_acount credentials file')
 parser.add_argument('--pubsub_topic',required=True, help='pubsub_topic to publish message')
 parser.add_argument('--pubsub_subscription',required=True, help='pubsub_subscription to pull message')
-parser.add_argument('--kms_location_id',required=True, help='KMS kms_location_id (eg, us-central1)')
-parser.add_argument('--kms_key_ring_id',required=True, help='KMS kms_key_ring_id (eg, mykeyring)')
-parser.add_argument('--kms_crypto_key_id',required=True, help='KMS kms_crypto_key_id (eg, key1)')
 parser.add_argument('--tenantID',required=False, default="tenantKey", help='Optional additionalAuthenticatedData')
 
 args = parser.parse_args()
@@ -53,9 +50,7 @@ project_id = args.project_id
 os.environ['GOOGLE_CLOUD_PROJECT'] = project_id
 PUBSUB_TOPIC = args.pubsub_topic
 PUBSUB_SUBSCRIPTION = args.pubsub_subscription
-kms_location_id = args.kms_location_id
-kms_key_ring_id = args.kms_key_ring_id
-kms_crypto_key_id = args.kms_crypto_key_id
+
 tenantID = args.tenantID
 
 
@@ -81,17 +76,48 @@ def callback(message):
   logging.info('Received message attributes["kms_key"]: {}'.format(message.attributes['kms_key']))
   name = message.attributes['kms_key']
 
-  logging.info("Starting KMS decryption API call")
+  if args.mode=='decrypt':
+      try:
+        logging.info("Starting KMS decryption API call")
 
-  decrypted_message = kms_client.decrypt(
-      request={'name': name, 'ciphertext': base64.b64decode(message.data), 'additional_authenticated_data': tenantID.encode('utf-8')  })
+        decrypted_message = kms_client.decrypt(
+            request={'name': name, 'ciphertext': base64.b64decode(message.data), 'additional_authenticated_data': tenantID.encode('utf-8')  })
 
+        dec =  base64.b64decode(decrypted_message.plaintext)
+        logging.info("End KMS decryption API call")
+        logging.info('Decrypted data ' + decrypted_message.plaintext.decode('utf-8'))
+        message.ack()
+        logging.info("ACK message")
+      except Exception as e:
+        logging.info("Unable to decrypt message; NACK pubsub message " + str(e))
+        message.nack()
+      logging.info("End AES decryption")
 
-  dec =  base64.b64decode(decrypted_message.plaintext)
-  logging.info("End KMS decryption API call")
-  logging.info('Decrypted data ' + decrypted_message.plaintext.decode('utf-8'))
-  message.ack()
-  logging.info("ACK message")
+  if args.mode=='verify':
+    try:
+      logging.info("Starting HMAC")
+      hmac = message.attributes.get('signature')
+
+      m = hashlib.sha256()
+      m.update(message.data)
+      data_to_verify = m.digest()
+    
+      logging.info("Verify message: " + str(message.data))
+      logging.info("data_to_verify " + base64.b64encode(data_to_verify).decode('utf-8'))
+      logging.info('  With HMAC: ' + str(hmac))
+
+      verification_message = kms_client.mac_verify(
+            request={'name': name, 'data': data_to_verify, 'mac': base64.b64decode(hmac)  })
+      if verification_message.success:
+        logging.info("MAC verified ")
+        message.ack()
+      else:
+        logging.info("Mac verification failed; NACK pubsub message")
+        message.nack()        
+    except Exception as e:
+      logging.info("Unable to verify message; NACK pubsub message " + str(e))
+      message.nack()
+
   logging.info("********** End PubsubMessage ")
 
 subscriber.subscribe(subscription_name, callback=callback)
